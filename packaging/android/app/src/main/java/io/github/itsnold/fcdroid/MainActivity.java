@@ -63,7 +63,7 @@ public final class MainActivity extends Activity {
         catch (RuntimeException e) {
             setContentView(root);
             new AlertDialog.Builder(this).setTitle("Android WebView unavailable")
-                .setMessage("Install or update Android System WebView, then reopen FCDroid.\n" + e.getMessage())
+                .setMessage("Install or update Android System WebView, then reopen FilmCraft.\n" + e.getMessage())
                 .setPositiveButton("Close", (dialog, which) -> finish()).show();
             return;
         }
@@ -229,7 +229,7 @@ public final class MainActivity extends Activity {
     }
 
     private void confirmClose() {
-        new AlertDialog.Builder(this).setTitle("Close FCDroid?")
+        new AlertDialog.Builder(this).setTitle("Close FilmCraft?")
             .setMessage("Save important work with Save first. Session recovery is best effort, not a backup.")
             .setNegativeButton("Keep editing", null)
             .setPositiveButton("Save session & close", (dialog, which) -> {

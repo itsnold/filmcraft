@@ -108,7 +108,7 @@ jobs:
         run: |
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging packaging/android/app/build/outputs/apk/debug/app-debug.apk > target/android-badging.txt
           grep -F "package: name='io.github.itsnold.fcdroid' versionCode='2' versionName='0.1.1-alpha'" target/android-badging.txt
-          grep -F "application-label:'FCDroid'" target/android-badging.txt
+          grep -F "application-label:'FilmCraft'" target/android-badging.txt
           unzip -l packaging/android/app/build/outputs/apk/debug/app-debug.apk | grep 'assets/editor/filmcraft_web_bg.wasm'
           cd packaging/android/app/build/outputs/apk/debug
           sha256sum app-debug.apk > SHA256SUMS.txt
@@ -118,6 +118,22 @@ jobs:
           path: |
             packaging/android/app/build/outputs/apk/debug/app-debug.apk
             packaging/android/app/build/outputs/apk/debug/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30
+      - name: Assemble non-debuggable unsigned release candidate
+        run: gradle -p packaging/android :app:lintRelease :app:assembleRelease --stacktrace
+      - name: Verify unsigned release candidate
+        run: |
+          apk=packaging/android/app/build/outputs/apk/release/app-release-unsigned.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk" > target/android-release-badging.txt
+          grep -F "package: name='io.github.itsnold.fcdroid' versionCode='2' versionName='0.1.1-alpha'" target/android-release-badging.txt
+          grep -F "application-label:'FilmCraft'" target/android-release-badging.txt
+          if grep -q 'application-debuggable' target/android-release-badging.txt; then echo 'Refusing debuggable release'; exit 1; fi
+          unzip -l "$apk" | grep 'assets/editor/filmcraft_web_bg.wasm'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: filmcraft-android-unsigned-release
+          path: packaging/android/app/build/outputs/apk/release/app-release-unsigned.apk
           if-no-files-found: error
           retention-days: 30
       - uses: actions/upload-artifact@v4
