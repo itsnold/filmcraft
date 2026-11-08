@@ -17,6 +17,11 @@ Adding a second finger ends an active drag; it does not undo it.
 
 **Trim** makes dragging either visible clip end immediate. **Box select** starts a rectangle from
 empty timeline time space; occupied clip bodies scroll safely. Both select the Selection tool.
+Box select also works in empty Project/bin space, including gaps between media cards. In Auto,
+hold a Project item, bin or effect and then drag it; quick swipes still scroll, and releasing a
+stationary hold opens the context menu. On phones, Project and Effects show a companion Timeline
+when there is room; use More → Show companion panel or rotate if needed. Very small windows may
+omit it; use Tablet layout when both panels cannot fit.
 **Done**, the active mode button or Back leaves the mode. Shift adds to selection; clear modifiers
 after use. The shortcut bar scrolls sideways. **Actions** offers editing and exact one-frame trims,
 guarded against a changed selection. **Menu** browses/searches upstream menus.
@@ -25,6 +30,8 @@ guarded against a changed selection. **Menu** browses/searches upstream menus.
 Phone track headers show target/lock controls; specialist controls remain in Tablet/context menus.
 Preview is above/beside Timeline, Properties and Effect Controls, omitted in very short windows.
 More can hide it. Layout/UI scale are saved locally; phone navigation never replaces the saved dock.
+Fresh tablet installs default to 175% UI scale; phones default to 100%. An explicitly chosen scale
+is retained across updates. Use UI in the shortcut bar to change it.
 HTML controls have accessible names, focus indicators, pressed/disabled feedback and modal focus
 containment. Full TalkBack navigation of the canvas is **not validated**.
 
@@ -37,7 +44,7 @@ Pending exports are not preserved across process death.
 
 Back dismisses a sheet, special mode or editor overlay first. **Save session & close** waits for
 snapshot and metadata write success, but is not an external backup. Android may interrupt background
-snapshot attempts. Package: `io.github.itsnold.fcdroid`, version **0.1.0-alpha**, code **1**.
+snapshot attempts. Package: `io.github.itsnold.fcdroid`, version **0.1.1-alpha**, code **2**.
 No storage/media permission is requested. Only the local HTTPS asset origin can access the native
 bridge; remote content is blocked. Internet permission supports the WebView stack, not a server.
 

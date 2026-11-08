@@ -686,6 +686,8 @@ fn empty_space(app: &mut FilmcraftApp, ui: &mut egui::Ui, v: &View, bg: &egui::R
     let r = Rect::from_min_size(rest.min, vec2(rest.width(), rest.height().max(40.0)));
     ui.allocate_rect(r, Sense::hover());
     app.auto.add(&format!("{}.empty", v.prefix), r.intersect(ui.clip_rect()), "Empty area");
+    // The background also receives marquee drags in gaps between icon cards.
+    app.auto.add(&format!("{}.touchBackground", v.prefix), bg.rect.intersect(ui.clip_rect()), "Project selection area");
     marquee(app, ui, v, bg, ui.max_rect().min, actions);
     accept_view_drop(app, ui, r, v, actions);
     if bg.clicked() {

@@ -12,7 +12,13 @@ fn panel(app: &mut FilmcraftApp, ui: &mut egui::Ui, kind: PanelKind, rect: Rect)
     app.auto.add(&format!("panel.{}", kind.id()), rect, kind.title());
     let mut child = ui.new_child(egui::UiBuilder::new().max_rect(rect).id_salt(("phone", kind)));
     child.set_clip_rect(rect.intersect(ui.clip_rect()));
+    // Use compact track headers in both the main and companion Timeline, without saving them.
+    let header = app.ui.timeline.header_w;
+    if kind == PanelKind::Timeline {
+        app.ui.timeline.header_w = 112.0_f32.min(rect.width() * 0.32);
+    }
     crate::panels::show(app, &mut child, kind, rect);
+    app.ui.timeline.header_w = header;
 }
 
 /// One main panel, optionally with a live Program preview above/beside it.
@@ -22,7 +28,12 @@ pub(crate) fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, body: Rect) {
     }
     let Some(kind) = app.ui.phone_panel else { return };
     let mut main = body;
-    if app.ui.phone_preview && matches!(kind, PanelKind::Timeline | PanelKind::Properties | PanelKind::EffectControls) {
+    let companion = match kind {
+        PanelKind::Timeline | PanelKind::Properties | PanelKind::EffectControls => Some(PanelKind::Program),
+        PanelKind::Project | PanelKind::Effects => Some(PanelKind::Timeline),
+        _ => None,
+    };
+    if let Some(companion) = companion.filter(|_| app.ui.phone_preview) {
         let landscape = body.width() > body.height() * 1.3;
         let enough = if landscape { body.width() >= 580.0 } else { body.height() >= 400.0 };
         if enough {
@@ -35,16 +46,10 @@ pub(crate) fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, body: Rect) {
                 main.min.y = y + 6.0;
                 Rect::from_min_max(body.min, pos2(body.max.x, y))
             };
-            panel(app, ui, PanelKind::Program, preview);
+            panel(app, ui, companion, preview);
         }
     }
-    // Narrow headers only while drawing the phone Timeline; preserve tablet preferences.
-    let header = app.ui.timeline.header_w;
-    if kind == PanelKind::Timeline {
-        app.ui.timeline.header_w = 112.0_f32.min(main.width() * 0.32);
-    }
     panel(app, ui, kind, main);
-    app.ui.timeline.header_w = header;
 }
 
 /// Snapshot only current-pass hit targets, not guessed screen proportions or stale panel rects.
@@ -74,10 +79,10 @@ pub fn touch_layout(app: &FilmcraftApp, ctx: &egui::Context) -> Value {
         if id == "timeline.zoomBar.track" {
             tracks.push(e.rect);
         }
-        if id == "touch.timeline.empty" {
+        if id == "touch.timeline.empty" || project_background(id) {
             marquees.push(e.rect);
         }
-        if id.starts_with("touch.clip.") || id.contains(".kf.") {
+        if id.starts_with("touch.clip.") || id.contains(".kf.") || project_drag_item(id) || effect_drag_item(id) {
             holds.push(e.rect);
             blocks.push(e.rect);
         }
@@ -101,6 +106,27 @@ pub fn touch_layout(app: &FilmcraftApp, ctx: &egui::Context) -> Value {
         "keyboardFocus": ctx.egui_wants_keyboard_input(),
         "selection": {"clips": app.session.state.selection.len()}
     })
+}
+
+/// Only item and bin bodies, not their nested buttons, are draggable project targets.
+fn project_drag_item(id: &str) -> bool {
+    let Some((body, number)) = id.rsplit_once('.') else { return false };
+    let Some((prefix, kind)) = body.rsplit_once('.') else { return false };
+    (prefix == "project" || prefix.strip_prefix("projectBin.").is_some_and(|n| n.parse::<usize>().is_ok()))
+        && matches!(kind, "item" | "bin")
+        && number.parse::<u64>().is_ok()
+}
+
+/// Project's empty area and freeform canvas handle marquee selection.
+fn project_background(id: &str) -> bool {
+    let Some((prefix, suffix)) = id.rsplit_once('.') else { return false };
+    (prefix == "project" || prefix.strip_prefix("projectBin.").is_some_and(|n| n.parse::<usize>().is_ok()))
+        && matches!(suffix, "empty" | "freeform" | "touchBackground")
+}
+
+/// Effects, Lumetri looks and preset tiles support the editor's native drag path.
+fn effect_drag_item(id: &str) -> bool {
+    id.starts_with("effects.item.") || id.starts_with("effects.lumetriPreset.") || id.starts_with("effects.presetGrid.")
 }
 
 /// Remember numeric scrub targets for this pass only, clipped to the panel that painted them.
@@ -157,5 +183,21 @@ mod tests {
         let body = Rect::from_min_max(pos2(20.0, 10.0), pos2(180.0, 60.0));
         trim_targets(&mut app, body, body, 1);
         assert_eq!(app.auto.all().len(), 2);
+    }
+
+    #[test]
+    fn project_and_effect_gestures_only_target_draggable_bodies() {
+        for id in ["project.item.12", "project.bin.4", "projectBin.0.item.12"] {
+            assert!(project_drag_item(id), "{id}");
+        }
+        for id in ["project.item.12.selected", "project.bin.4.toggle", "project.search", "effects.folder.Video"] {
+            assert!(!project_drag_item(id));
+        }
+        assert!(project_background("project.empty"));
+        assert!(project_background("project.freeform"));
+        assert!(!project_background("timeline.empty"));
+        assert!(effect_drag_item("effects.item.blur"));
+        assert!(effect_drag_item("effects.presetGrid.Warm"));
+        assert!(!effect_drag_item("effects.folder.Video"));
     }
 }

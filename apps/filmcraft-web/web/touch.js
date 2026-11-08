@@ -345,7 +345,7 @@ export function installTouchBar(canvas, { modifiers, controls }) {
     controls.mode = modes[(modes.indexOf(controls.mode) + 1) % modes.length];
     updateModes();
   });
-  const box = button("Box select", "Toggle timeline box selection: drag from empty space", () => {
+  const box = button("Box select", "Toggle box selection in the timeline or Project panel: drag from empty space", () => {
     controls.mode = controls.mode === "box" ? "auto" : "box";
     updateModes();
     return window.filmcraft.request("ui.set", { tool: "Selection" });
@@ -399,7 +399,8 @@ export function installTouchBar(canvas, { modifiers, controls }) {
     "Drag the time ruler / playhead to scrub; drag the bottom time-zoom slider or top navigator handles to change the time scale. " +
     "Time − / Time + / Fit time change timeline zoom; Frame ‹ / Frame › place the playhead one frame at a time. " +
      "Hold a clip until the vibration, then drag to move or trim it. " +
-    "For a selection rectangle, tap Box select, then drag from empty timeline time space. Shift adds to selection. " +
+    "For a selection rectangle, tap Box select, then drag from empty timeline or Project panel space. Shift adds to selection. " +
+    "In Project and Effects, hold an item then drag it to the timeline when both panels are visible. " +
     "Tap Trim, then drag near a clip's left/right edge to shorten or extend it without a hold. Tap the active Box select or Trim button again to return to Auto. " +
     "In Auto, hold empty timeline space to draw a selection box; hold near a clip edge to trim. Keep the same finger down while moving. " +
     "Release a hold without moving for options. Swipe left/right directly on a number to adjust it; swipe vertically to scroll. " +
@@ -408,7 +409,7 @@ export function installTouchBar(canvas, { modifiers, controls }) {
     "Tap to select. Hold still for 0.5 seconds, then release for a right-click menu. " +
     "Pinch with two fingers to zoom the timeline or preview; move two fingers together to scroll panels and the timeline. " +
     "Use Hand to pan. Shift enables multi-select; tap it again when finished. " +
-    "Viewer / Timeline expands that panel. UI adjusts editor scale; 100% is the default, 75–90% fits more on small screens. " +
+    "Viewer / Timeline expands that panel. UI adjusts editor scale; new tablets start at 175% and phones at 100%. " +
     "Layout chooses Auto, Phone or Tablet. Phone Timeline, Properties and Effect controls keep a live preview. " +
     "More opens other panels or hides the live preview; Menu searches actions. " +
     "Save exports an .fcproj; session recovery alone is not a backup. " +
@@ -457,7 +458,10 @@ export function dismissTouchOverlay() {
 
 // Preferences here are local to the Android fork.
 export async function applyAndroidDefaults(api, storage) {
-  const scale = Number(storage.getItem("fcdroid.scale") || 100);
+  const saved = storage.getItem("fcdroid.scale");
+  const tablet = Number.isFinite(globalThis.screen?.width) && Number.isFinite(globalThis.screen?.height) &&
+    Math.min(globalThis.screen.width, globalThis.screen.height) >= 600;
+  const scale = Number(saved || (tablet ? 175 : 100));
   if ([75, 100, 125, 150, 175, 200].includes(scale))
     await api.execute("prefs.set", { values: { "appearance.uiScale": String(scale) } });
 }

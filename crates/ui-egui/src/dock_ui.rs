@@ -203,6 +203,14 @@ impl FilmcraftApp {
         if !ctx.content_rect().contains(pos) {
             return false;
         }
+        // Phone panels are drawn outside DockArea, whose stored body geometry belongs to the
+        // desktop workspace. Use the accepted phone frame instead of stale dock rectangles.
+        if self.ui.phone_panel.is_some() {
+            return self.auto.find("panel.Timeline").is_some_and(|element| {
+                let [x, y, w, h] = element.rect;
+                Rect::from_min_size(egui::pos2(x, y), egui::vec2(w, h)).contains(pos)
+            }) && !self.modal_open(ctx);
+        }
         let Some(bodies) = ctx.data(|data| data.get_temp::<Vec<(PanelKind, Rect, egui::LayerId)>>(bodies_id())) else { return true };
         let Some((_, _, timeline)) = bodies.iter().find(|(panel, rect, _)| *panel == PanelKind::Timeline && rect.contains(pos)) else { return false };
         let layers = ctx.memory(|memory| memory.layer_ids().collect::<Vec<_>>());

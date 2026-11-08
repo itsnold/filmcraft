@@ -251,10 +251,22 @@ function preferences(initial = {}, scale = 125) {
 }
 let prefs = preferences(); await applyAndroidDefaults(prefs.api, prefs.storage);
 assert.deepEqual(prefs.writes, [{ "appearance.uiScale": "100" }]);
+globalThis.screen = { width: 1280, height: 800 };
+prefs = preferences(); await applyAndroidDefaults(prefs.api, prefs.storage);
+assert.deepEqual(prefs.writes, [{ "appearance.uiScale": "175" }], "new tablets default to a readable scale");
+prefs = preferences({ "fcdroid.scale": "125" }); await applyAndroidDefaults(prefs.api, prefs.storage);
+assert.deepEqual(prefs.writes, [{ "appearance.uiScale": "125" }], "never replace a user's chosen scale");
+delete globalThis.screen;
 prefs = preferences({ "fcdroid.scale": "75" }); await applyAndroidDefaults(prefs.api, prefs.storage);
 assert.deepEqual(prefs.writes, [{ "appearance.uiScale": "75" }]);
 prefs = preferences({ "fcdroid.scale": "NaN" }); await applyAndroidDefaults(prefs.api, prefs.storage);
 assert.deepEqual(prefs.writes, [], "invalid saved scales cannot reach the engine");
+const projectLayout = { pixelsPerPoint: 2, scrolls: [[0,0,400,400]],
+  marquees: [[0,0,400,400]], holdDrags: [[50,50,100,40]], marqueeBlocks: [[50,50,100,40]] };
+assert.equal(touchTarget(p(70,70), projectLayout, {left:0,top:0}, 2).policy, "hold-drag", "hold project items to drag");
+assert.equal(touchTarget(p(10,10), projectLayout, {left:0,top:0}, 2, "box").policy, "drag", "project background starts a marquee");
+assert.equal(touchTarget(p(70,70), projectLayout, {left:0,top:0}, 2, "box").policy, "scroll", "box mode does not move a media item");
+assert.equal(touchTarget(p(70,70), { ...projectLayout, overlay: true }, {left:0,top:0}, 2).policy, "auto", "modal blocks media drags");
 console.log("Android usability: swipe axes, editing overrides, scrollbar hit targets, density, cancellation and scale choices passed");
 // A coalesced quick swipe must not become a tap; cancellation coordinates may be (0,0).
 gesture.down(1, p(100, 200), "auto"); gesture.up(1, p(100, 160));

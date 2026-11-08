@@ -107,7 +107,7 @@ export function installPhoneWorkspace(api) {
     for (const [id, label] of PHONE_PANELS) button(options, label, async () => { await controller.setPanel(id); box.remove(); });
     button(options, "Export video", async () => { box.remove(); await invoke("mode.export"); });
     const preview = api.touchLayout()?.phonePreview !== false;
-    button(options, preview ? "Hide live preview" : "Show live preview", async () => {
+    button(options, preview ? "Hide companion panel" : "Show companion panel", async () => {
       await api.request("ui.set", { phonePreview: !preview }); box.remove();
     });
     layouts(options);

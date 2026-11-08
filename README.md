@@ -5,7 +5,7 @@ An **unofficial Android fork** of [FilmCraft](https://github.com/storytold/filmc
 using the Android/touch approach from [ECDroid](https://github.com/itsnold/effectcraft).
 Not affiliated with or endorsed by the upstream team or Adobe.
 
-**FilmCraft v0.18.0 · FCDroid 0.1.0-alpha · Android 10+**
+**FilmCraft v0.18.0 · FCDroid 0.1.1-alpha source · Android 10+**
 
 ## APK download and installation
 
@@ -42,17 +42,20 @@ background export and reliability on every device are **not promised**.
 - **Phone tabs:** Preview, Timeline, Media and Effects; More opens Source, Effect Controls,
   Properties, Color, Captions, Graphics, Audio Mixer, History, export progress and other panels.
 - **Live Program preview** above/beside Timeline, Properties and Effect Controls when space permits.
-  Hide it for more room; switching to Tablet preserves the original dock.
+  Project and Effects can show a companion Timeline for drag-and-drop. Hide the companion for more
+  room; switching to Tablet preserves the original dock.
 - **Full menu browser and search**, backed by the real menu tree and enabled states.
 - **Auto / Scroll / Drag** modes: quick timeline swipes navigate without moving clips;
   hold a clip for 500 ms then drag to edit; stationary holds offer context menus.
 - **Pinch zoom**, two-finger scrolling, ruler scrubbing and enlarged trim/zoom targets.
-- **Trim** and **Box select** modes with **Done**; no right click or held key required.
+- **Trim** and **Box select** modes with **Done**; Project panel box selection starts in empty
+  space. Hold a Project item or effect and drag it to the Timeline when both panels are visible.
 - **Actions:** split, duplicate, delete, ripple delete and exact one-frame In/Out adjustments
   of the first selected clip and its linked media.
 - Swipeable shortcuts: Undo/Redo, play, Save/Open/Import, Razor, Select, Hand, fit, timeline zoom,
   frame stepping, Delete/Escape and latched **Shift / Alt / Ctrl** modifiers.
-- **75–200% UI scale** choices and **Auto / Phone / Tablet** override.
+- **75–200% UI scale** choices and **Auto / Phone / Tablet** override. New tablets start at 175%;
+  phones start at 100%; previously chosen scales are preserved.
 - Labelled buttons, focus outlines, pressed/disabled states, reduced-motion handling,
   focus-contained modal sheets and Android Back dismissal.
 - Native document pickers for import/open and project/video export; no all-files permission.

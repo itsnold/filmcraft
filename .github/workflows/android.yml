@@ -107,7 +107,7 @@ jobs:
       - name: Verify APK and checksum
         run: |
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging packaging/android/app/build/outputs/apk/debug/app-debug.apk > target/android-badging.txt
-          grep -F "package: name='io.github.itsnold.fcdroid' versionCode='1' versionName='0.1.0-alpha'" target/android-badging.txt
+          grep -F "package: name='io.github.itsnold.fcdroid' versionCode='2' versionName='0.1.1-alpha'" target/android-badging.txt
           grep -F "application-label:'FCDroid'" target/android-badging.txt
           unzip -l packaging/android/app/build/outputs/apk/debug/app-debug.apk | grep 'assets/editor/filmcraft_web_bg.wasm'
           cd packaging/android/app/build/outputs/apk/debug

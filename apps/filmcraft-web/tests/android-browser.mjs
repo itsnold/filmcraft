@@ -119,6 +119,17 @@ try {
     assert(geometry.holdDrags.length > 0, "actual engine registers visible clip targets");
     assert(geometry.trims.length > 0, "actual engine registers visible trim edges");
     await js("filmcraft.saveRecovery()");
+    await js("[...document.querySelectorAll('#phone-nav button')].find(b=>b.textContent==='Media').click()");
+    await until("filmcraft.touchLayout().phonePanel==='Project'");
+    await until("filmcraft.touchLayout().marquees.length > 0 && filmcraft.touchLayout().holdDrags.length > 0");
+    const project = await js("(async()=>({layout:filmcraft.touchLayout(),elements:await filmcraft.request('ui.elements',{prefix:'project.item.'})}))()");
+    const media = project.elements.find(e => /^project\.item\.\d+$/.test(e.id) && e.rect[2] > 0 && e.rect[3] > 0);
+    assert(media, "demo Project panel exposes a visible item");
+    const overlaps = (a,b) => a[0] < b[0]+b[2] && b[0] < a[0]+a[2] && a[1] < b[1]+b[3] && b[1] < a[1]+a[3];
+    assert(project.layout.holdDrags.some(r => overlaps(r, media.rect)), "Project items are registered as hold-to-drag targets");
+    const background = await js("filmcraft.request('ui.elements',{prefix:'project.touchBackground'})");
+    assert(background.length && project.layout.marquees.some(r => overlaps(r, background[0].rect)), "Project background is a marquee target");
+    assert(project.layout.scrolls.some(r => r[2] > 0), "phone Project and companion Timeline expose scrolling regions");
   }
   await js("[...document.querySelectorAll('#phone-toolbar button')].find(b=>b.textContent==='Menu').click()");
   await until("document.querySelector('#touch-error button')");
