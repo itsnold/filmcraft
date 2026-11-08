@@ -1021,7 +1021,9 @@ fn card(app: &mut FilmcraftApp, ui: &mut egui::Ui, r: Rect, id: ItemId, pre: &st
             resp = resp.on_hover_text(&it.name);
         }
     }
-    app.auto.add(&format!("{pre}.item.{}", id.0), resp.rect.intersect(ui.clip_rect()), &it.name);
+    // Keep the thumbnail geometry stable for automation; the touch target covers the card body.
+    app.auto.add(&format!("{pre}.item.{}", id.0), th, &it.name);
+    app.auto.add(&format!("touch.project.card.{}", id.0), resp.rect.intersect(ui.clip_rect()), &it.name);
     Some(resp)
 }
 

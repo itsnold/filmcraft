@@ -121,7 +121,11 @@ try {
     await js("filmcraft.saveRecovery()");
     await js("[...document.querySelectorAll('#phone-nav button')].find(b=>b.textContent==='Media').click()");
     await until("filmcraft.touchLayout().phonePanel==='Project'");
-    await until("filmcraft.touchLayout().marquees.length > 0 && filmcraft.touchLayout().holdDrags.length > 0");
+    // Demo media starts inside a collapsed Footage bin, and the panel needs a frame to draw.
+    await until("(async()=>{const e=await filmcraft.request('ui.elements',{prefix:'project.bin.'});return e.some(x=>x.label==='Footage')})()", 30000);
+    const footage = await js("(async()=> (await filmcraft.request('ui.elements',{prefix:'project.bin.'})).find(x=>x.label==='Footage').id)()");
+    await js(`filmcraft.request('ui.click',{id:${JSON.stringify(footage + '.toggle')}})`);
+    await until("(async()=>{const e=await filmcraft.request('ui.elements',{prefix:'project.item.'});return e.some(x=>/^project\\.item\\.\\d+$/.test(x.id)&&x.rect[2]>0&&x.rect[3]>0)})()", 30000);
     const project = await js("(async()=>({layout:filmcraft.touchLayout(),elements:await filmcraft.request('ui.elements',{prefix:'project.item.'})}))()");
     const media = project.elements.find(e => /^project\.item\.\d+$/.test(e.id) && e.rect[2] > 0 && e.rect[3] > 0);
     assert(media, "demo Project panel exposes a visible item");

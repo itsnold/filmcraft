@@ -111,6 +111,7 @@ pub fn touch_layout(app: &FilmcraftApp, ctx: &egui::Context) -> Value {
 /// The registered body (not neighbouring buttons) of an editor item that can actually drag.
 fn draggable_item(id: &str) -> bool {
     id.starts_with("touch.clip.")
+        || id.starts_with("touch.project.card.")
         || id.contains(".kf.")
         || (id.starts_with("effectControls.") && id.contains(".keyframe."))
         || id.starts_with("touch.mediaBrowser.file.")
@@ -212,6 +213,7 @@ mod tests {
         assert!(effect_drag_item("effects.presetGrid.Warm"));
         assert!(!effect_drag_item("effects.folder.Video"));
         assert!(draggable_item("touch.mediaBrowser.file./clip.mp4"));
+        assert!(draggable_item("touch.project.card.12"));
         assert!(!draggable_item("mediaBrowser.entry.folder"));
         assert!(draggable_item("gfxTemplates.item.title"));
         assert!(draggable_item("effectControls.motion.position.keyframe.42"));
