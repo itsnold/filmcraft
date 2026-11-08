@@ -75,10 +75,12 @@ directory with `-PwebDist=/absolute/dist`. Missing WASM fails the build. Launche
 from the permissively licensed FilmCraft icon. Licences/notices are bundled. No font binaries added.
 
 The Android workflow runs Node/browser tests, standalone JVM export regressions, lint, WASM build
-and a real Android-mode browser smoke test before uploading a debug APK/checksum. The separate Rust
-quality gate calls the upstream shared workflow. Review **all jobs** before distributing artifacts.
-No release-publishing job exists; no permanent signing key is created. Debug keys can change between
-runners: back up externally before uninstalling. Artifacts are not permanently signed releases.
+and a real Android-mode browser smoke test before building debug and unsigned release APKs. The separate
+Rust quality gate calls the upstream shared workflow. After both pass, a signing job uses the configured
+existing key, verifies its certificate and uploads a non-debuggable signed candidate and checksum.
+Review **all jobs** before distributing artifacts. No release-publishing job exists; no signing key is
+created. Debug keys can change between runners and do not necessarily match the release certificate:
+back up externally before uninstalling.
 
 ## Device acceptance before a public release
 

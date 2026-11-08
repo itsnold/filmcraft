@@ -145,3 +145,56 @@ jobs:
             target/android-badging.txt
             packaging/android/app/build/reports/
           if-no-files-found: ignore
+
+  sign-release:
+    name: Sign and verify FilmCraft release candidate
+    needs: [apk, rust-gate]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - run: sdkmanager "build-tools;35.0.0"
+      - uses: actions/download-artifact@v4
+        with:
+          name: filmcraft-android-unsigned-release
+          path: candidate
+      - name: Sign and verify the existing release certificate
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64" && test -n "$KS_PASS" && test -n "$KEY_PASS" && test -n "$KEY_ALIAS" || { echo 'Missing Android signing secrets'; exit 1; }
+          umask 077
+          key="$RUNNER_TEMP/filmcraft-release.keystore"
+          trap 'rm -f "$key"' EXIT
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$key"
+          tools="$ANDROID_HOME/build-tools/35.0.0"
+          "$tools/zipalign" -p -f 4 candidate/app-release-unsigned.apk candidate/aligned.apk
+          "$tools/apksigner" sign --ks "$key" --ks-key-alias "$KEY_ALIAS" --ks-pass env:KS_PASS --key-pass env:KEY_PASS --out candidate/FilmCraft-Android-0.1.1-alpha.apk candidate/aligned.apk
+          "$tools/apksigner" verify --verbose --print-certs candidate/FilmCraft-Android-0.1.1-alpha.apk > candidate/signature.txt
+          cat candidate/signature.txt
+          grep -iF 'Signer #1 certificate SHA-256 digest: cd144e25c7f81c264c2e47035c4bc4f69f3520540957809b77d2ab3d4c232098' candidate/signature.txt
+          "$tools/aapt" dump badging candidate/FilmCraft-Android-0.1.1-alpha.apk > candidate/badging.txt
+          grep -F "package: name='io.github.itsnold.fcdroid' versionCode='2' versionName='0.1.1-alpha'" candidate/badging.txt
+          grep -F "application-label:'FilmCraft'" candidate/badging.txt
+          if grep -q 'application-debuggable' candidate/badging.txt; then echo 'Refusing debuggable release'; exit 1; fi
+          cd candidate
+          sha256sum FilmCraft-Android-0.1.1-alpha.apk > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: filmcraft-android-signed-release
+          path: |
+            candidate/FilmCraft-Android-0.1.1-alpha.apk
+            candidate/SHA256SUMS.txt
+            candidate/signature.txt
+          if-no-files-found: error
+          retention-days: 30
