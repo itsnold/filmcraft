@@ -30,6 +30,48 @@ type Waiting = (Receiver<Value>, js_sys::Function, js_sys::Function);
 thread_local! {
     static TX: RefCell<Option<Sender<ControlRequest>>> = const { RefCell::new(None) };
     static WAITING: RefCell<Vec<Waiting>> = const { RefCell::new(Vec::new()) };
+    static TOUCH_LAYOUT: RefCell<Value> = const { RefCell::new(Value::Null) };
+}
+
+/// Replace the synchronous touch hit map only after drawing a completed frame.
+pub fn set_touch_layout(layout: Value) {
+    TOUCH_LAYOUT.with(|value| *value.borrow_mut() = layout);
+}
+
+/// Explicit Android lifecycle snapshot. Resolve only after both queued OPFS writes succeed.
+fn save_recovery() -> js_sys::Promise {
+    js_sys::Promise::new(&mut |resolve, reject| {
+        if !crate::opfs::available() {
+            let _ = reject.call1(&JsValue::NULL, &js_sys::Error::new("Private storage unavailable; use Save before closing"));
+            return;
+        }
+        crate::post(move |web, _ctx| {
+            let session = &web.app.session;
+            let bytes = filmcraft_format::encode(&session.project, false);
+            let meta = json!({"dirty": true, "name": session.project.name, "revision": session.revision}).to_string().into_bytes();
+            crate::opfs::write_then(
+                "recovery/snapshot.fcproj".into(),
+                bytes,
+                Some(Box::new(move |ok| {
+                    if !ok {
+                        let _ = reject.call1(&JsValue::NULL, &js_sys::Error::new("Could not save recovery snapshot"));
+                        return;
+                    }
+                    crate::opfs::write_then(
+                        "recovery/meta.json".into(),
+                        meta,
+                        Some(Box::new(move |ok| {
+                            if ok {
+                                let _ = resolve.call0(&JsValue::NULL);
+                            } else {
+                                let _ = reject.call1(&JsValue::NULL, &js_sys::Error::new("Could not save recovery metadata"));
+                            }
+                        })),
+                    );
+                })),
+            );
+        });
+    })
 }
 
 pub fn set_sender(tx: Sender<ControlRequest>) {
@@ -118,6 +160,8 @@ pub async fn fetch_file(url: &str, name: Option<String>) -> Result<web_sys::File
 /// Install `window.filmcraft`.
 pub fn install() -> Result<(), JsValue> {
     let obj = js_sys::Object::new();
+    set_fn(&obj, "touchLayout", Closure::<dyn Fn() -> JsValue>::new(|| TOUCH_LAYOUT.with(|value| to_js(&value.borrow()))).into_js_value())?;
+    set_fn(&obj, "saveRecovery", Closure::<dyn Fn() -> js_sys::Promise>::new(save_recovery).into_js_value())?;
     set_fn(
         &obj,
         "request",

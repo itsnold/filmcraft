@@ -173,6 +173,7 @@ fn hot_number_display(ui: &mut Ui, id: egui::Id, value: f64, options: HotNumberO
     let text = format!("{value:.decimals$}{suffix}");
     let galley = ui.painter().layout_no_wrap(text, Tokens::ui(12.0), t.hot_text);
     let (rect, resp) = ui.allocate_exact_size(galley.size() + vec2(4.0, 4.0), Sense::click_and_drag());
+    crate::mobile::register_number(ui, rect);
     let col = if resp.hovered() || resp.dragged() { t.accent_hover } else { t.hot_text };
     ui.painter().galley_with_override_text_color(rect.min + vec2(2.0, 2.0), galley, col);
     if resp.hovered() || resp.dragged() {

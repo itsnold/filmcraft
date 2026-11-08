@@ -6,6 +6,10 @@ use serde::{Deserialize, Serialize};
 use crate::dock::PanelKind;
 use crate::icons::Icon;
 
+fn phone_preview_default() -> bool {
+    true
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Tool {
     #[default]
@@ -441,6 +445,11 @@ pub struct KeyframeRef {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct UiState {
+    /// Transient phone presentation; never replaces the saved tablet/desktop dock.
+    #[serde(default)]
+    pub phone_panel: Option<PanelKind>,
+    #[serde(default = "phone_preview_default")]
+    pub phone_preview: bool,
     #[serde(default)]
     pub markers_panel: crate::panels::markers_panel::State,
     #[serde(skip)]
@@ -1001,6 +1010,8 @@ fn yes() -> bool {
 impl Default for UiState {
     fn default() -> Self {
         Self {
+            phone_panel: None,
+            phone_preview: true,
             marker_properties: None,
             markers_panel: Default::default(),
             palette_manager: None,

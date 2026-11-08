@@ -1,0 +1,121 @@
+name: Android APK
+
+on:
+  push:
+    branches: [android]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_BUILD_JOBS: 2
+  CARGO_PROFILE_RELEASE_LTO: "false"
+  CARGO_PROFILE_RELEASE_CODEGEN_UNITS: 16
+
+jobs:
+  rust-gate:
+    name: Shared Rust quality gate
+    uses: storytold/craft-common-actions/.github/workflows/gate.yml@main
+    with:
+      toolchain: "1.95.0"
+      craft-fonts-ref: b076417b5880bd4154bd22f00695b1d28c6bea83
+      timeout-minutes: 120
+      packages: >-
+        pkg-config libxkbcommon-dev libwayland-dev libx11-dev libxcb1-dev libxcursor-dev
+        libxrandr-dev libxi-dev libfontconfig1-dev libfreetype-dev mesa-vulkan-drivers
+        libasound2-dev
+
+  apk:
+    name: Build and test FCDroid APK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Verify upstream version and lockfile
+        run: |
+          python3 - <<'PY'
+          import tomllib
+          from pathlib import Path
+          version = tomllib.loads(Path('Cargo.toml').read_text())['workspace']['package']['version']
+          assert version == '0.18.0', version
+          packages = tomllib.loads(Path('Cargo.lock').read_text())['package']
+          engine = [p for p in packages if p['name'] == 'filmcraft' or p['name'].startswith('filmcraft-')]
+          assert engine and all(p['version'] == version for p in engine)
+          PY
+      - name: Gesture, navigation and real-browser regressions
+        run: |
+          node apps/filmcraft-web/tests/touch.mjs
+          node apps/filmcraft-web/tests/phone.mjs
+          node apps/filmcraft-web/tests/android-browser.mjs --chrome google-chrome
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Bounded native export regressions
+        run: |
+          mkdir -p target/android-java-tests
+          javac -d target/android-java-tests packaging/android/app/src/main/java/io/github/itsnold/fcdroid/ExportStore.java packaging/android/tests/ExportStoreTest.java
+          java -ea -cp target/android-java-tests io.github.itsnold.fcdroid.ExportStoreTest
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.13"
+      - name: Lint Android shell before compiling WASM
+        run: gradle -p packaging/android :app:lintDebug -x :app:bundleEditor --stacktrace
+      - uses: dtolnay/rust-toolchain@1.95.0
+        with:
+          targets: wasm32-unknown-unknown
+          components: rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: fcdroid-wasm
+          cache-on-failure: true
+      - run: cargo fmt --all -- --check
+      - name: Install exact WASM binding tool
+        run: cargo install wasm-bindgen-cli --version 0.2.129 --locked
+      - name: Build editor from this checkout
+        run: cargo xtask web
+      - name: Compiled editor phone smoke test
+        run: node apps/filmcraft-web/tests/android-browser.mjs --chrome google-chrome --dist target/web/dist
+      - name: WebGL 4096-texture compatibility
+        run: node apps/filmcraft-web/tests/android-browser.mjs --chrome google-chrome --dist target/web/dist --webgl-4096
+      - name: Assemble testing APK
+        run: gradle -p packaging/android :app:lintDebug :app:assembleDebug --stacktrace
+      - name: Verify APK and checksum
+        run: |
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging packaging/android/app/build/outputs/apk/debug/app-debug.apk > target/android-badging.txt
+          grep -F "package: name='io.github.itsnold.fcdroid' versionCode='1' versionName='0.1.0-alpha'" target/android-badging.txt
+          grep -F "application-label:'FCDroid'" target/android-badging.txt
+          unzip -l packaging/android/app/build/outputs/apk/debug/app-debug.apk | grep 'assets/editor/filmcraft_web_bg.wasm'
+          cd packaging/android/app/build/outputs/apk/debug
+          sha256sum app-debug.apk > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fcdroid-android-debug
+          path: |
+            packaging/android/app/build/outputs/apk/debug/app-debug.apk
+            packaging/android/app/build/outputs/apk/debug/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fcdroid-test-reports
+          path: |
+            target/android-smoke/
+            target/android-badging.txt
+            packaging/android/app/build/reports/
+          if-no-files-found: ignore

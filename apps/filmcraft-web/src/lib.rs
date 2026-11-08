@@ -22,6 +22,7 @@ pub mod api;
 pub mod audio;
 pub mod download_pacing;
 pub mod fs;
+mod graphics;
 pub mod host;
 pub mod hostmode;
 pub mod import;
@@ -126,6 +127,9 @@ impl eframe::App for WebApp {
 
     fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
         self.app.ui(ui, frame);
+        if query_flag("android") && !ui.ctx().will_discard() {
+            api::set_touch_layout(filmcraft_ui_egui::mobile::touch_layout(&self.app, ui.ctx()));
+        }
     }
 }
 
@@ -157,6 +161,7 @@ pub async fn start(canvas_id: String) -> Result<(), JsValue> {
     set_info("threads", json!(false));
     set_info("frameWorkers", json!("cooperative"));
     set_info("opfs", json!(opfs::available()));
+    set_info("version", json!(env!("CARGO_PKG_VERSION")));
 
     // Media kept in OPFS by earlier sessions come back under their paths (recovery).
     let restored = if !in_host_mode && opfs::available() && !query_flag("fresh") { recovery::restore_media().await } else { 0 };
@@ -167,7 +172,7 @@ pub async fn start(canvas_id: String) -> Result<(), JsValue> {
     import::install_drop_handlers()?;
 
     let demo = !in_host_mode && !query_flag("empty");
-    let mut web_options = eframe::WebOptions::default();
+    let mut web_options = graphics::web_options();
     // `?webgl`: WebGL2 only. The page reloads with it when starting on WebGPU fails (an adapter
     // whose device can't be created, a driver the browser rejects…); see `index.html`.
     if query_flag("webgl")
@@ -201,6 +206,9 @@ pub async fn start(canvas_id: String) -> Result<(), JsValue> {
                 }
                 webcodecs::install();
                 let mut session = Session::new(Arc::new(fs::WebServices));
+                if query_flag("android") {
+                    session.prefs.memory.frame_cache_mb = 128;
+                }
                 let mut toast = None;
                 if let Some((name, bytes)) = recovered {
                     let path = format!("/recovered/{name}");

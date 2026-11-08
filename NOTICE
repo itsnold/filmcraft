@@ -3,9 +3,14 @@ Copyright (c) 2026 ArtCraft Team and the FilmCraft contributors.
 Licensed under the MIT License or the Apache License, Version 2.0, at your option
 (LICENSE-MIT, LICENSE-APACHE).
 
-The ArtCraft name, wordmark and logos in docs/brand/ are trademarks of the ArtCraft Team. They are
-not open source and are not covered by the license above; their terms are in
-docs/brand/LICENSE-brand.txt.
+FCDroid is an unofficial Android fork. Restricted ArtCraft wordmark and logo artwork has
+been removed; the original trademark terms remain in docs/brand/LICENSE-brand.txt.
+
+Android shell, export bridge and touch adapter adapted from ECDroid / EffectCraft for Android:
+https://github.com/itsnold/effectcraft/tree/1e79d81ae7a329900c336ed82d4c6c7ade5129d7
+Copyright (c) 2026 ArtCraft Team and the EffectCraft contributors; Android changes by
+ECDroid contributors. MIT OR Apache-2.0. Original copyright and permission notices retained.
+AndroidX WebKit is Apache-2.0 (https://developer.android.com/jetpack/androidx/releases/webkit).
 
 Third-party material
 

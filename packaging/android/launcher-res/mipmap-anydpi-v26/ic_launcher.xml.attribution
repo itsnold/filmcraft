@@ -1,0 +1,8 @@
+asset:        ic_launcher.xml
+title:        FCDroid Android adaptive launcher icon
+author:       FilmCraft contributors; Android wrapper from ECDroid
+source:       assets/app-icon/filmcraft-1024.png; https://github.com/itsnold/effectcraft/tree/1e79d81ae7a329900c336ed82d4c6c7ade5129d7/packaging/android
+license:      MIT OR Apache-2.0
+license-file: assets/app-icon/LICENSE.txt
+added:        2026-11-08 by @itsnold
+notes:        Adaptive wrapper around the permissively licensed FilmCraft icon; resources are generated during the build. No restricted trademark artwork is used.

@@ -51,6 +51,18 @@ Dependencies and assets use SPDX identifiers. An expression is allowed when ever
 `LicenseRef-Storyteller-Trademark` is not in this list. It covers Storyteller brand marks only, where a repository already says so.
 <!-- craft-house-rules:end -->
 
+# FCDroid fork-specific owner approvals
+
+For this fork's `android` branch, the owner explicitly approved an ECDroid-style Java/WebView
+shell, JavaScript touch/presentation glue around the existing Rust/WASM editor, and a dedicated
+Android APK workflow. These are scoped exceptions to the inherited native-only/shared-CI rules;
+do not apply them to upstream. The owner authorized pushing this branch and starting testing APK
+CI, not pushing `main`, publishing releases, changing remotes or creating signing secrets.
+When local Rust/Android toolchains are absent, report that and use the authorized branch's CI for
+compilation/gates; do not mark it ready until checks and device acceptance succeed.
+Issues are disabled in this fork, so there is no local issue claim to post. Upstream work must
+still follow upstream issue/PR policies. See `docs/android.md` for architecture and acceptance.
+
 # FilmCraft — rules for agents and contributors
 
 These rules apply to every human and AI contributor. `CLAUDE.md` holds the working instructions; this

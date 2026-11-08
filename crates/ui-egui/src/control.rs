@@ -26,6 +26,7 @@ use std::sync::mpsc::Sender;
 use serde_json::{Value, json};
 
 const MAX_CLICK_COUNT: u64 = 10;
+
 const MAX_DRAG_STEPS: u64 = 1_024;
 /// Synthetic input is consumed a step per frame; bound what a client can queue ahead of that.
 const MAX_SYNTHETIC_EVENTS: usize = 16_384;
@@ -118,6 +119,26 @@ fn point(app: &FilmcraftApp, p: &Value) -> Result<egui::Pos2, String> {
 }
 
 fn handle_ui_set(app: &mut FilmcraftApp, ctx: &egui::Context, p: &Value) -> Outcome {
+    if let Some(value) = p.get("phonePanel") {
+        let panel = if value.is_null() {
+            None
+        } else if let Some(panel) = value.as_str().and_then(PanelKind::from_name) {
+            Some(panel)
+        } else {
+            return err("phonePanel must be a known panel or null");
+        };
+        app.ui.phone_panel = panel;
+        app.pending_panel_raise = None;
+        if let Some(panel) = panel {
+            app.ui.focused = panel;
+            app.ui.mode = Mode::Edit;
+        }
+        ctx.request_repaint();
+    }
+    if let Some(value) = p.get("phonePreview") {
+        let Some(enabled) = value.as_bool() else { return err("phonePreview must be a boolean") };
+        app.ui.phone_preview = enabled;
+    }
     let s = |k: &str| p.get(k).and_then(Value::as_str);
     // Text to Speech panel draft (voice, pitch, pace, text…), merged into the current one
     if let Some(patch) = p.get("tts") {
@@ -946,5 +967,21 @@ mod base64_tests {
         assert_eq!(super::bounded_repetitions(&json!({"steps": 1}), "steps", 12, 2, super::MAX_DRAG_STEPS).unwrap(), 2);
         assert!(super::bounded_repetitions(&json!({"count": u64::MAX}), "count", 1, 0, super::MAX_CLICK_COUNT).is_err());
         assert!(super::bounded_repetitions(&json!({"steps": "many"}), "steps", 12, 2, super::MAX_DRAG_STEPS).is_err());
+    }
+
+    #[test]
+    fn phone_navigation_keeps_the_saved_dock() {
+        let ctx = egui::Context::default();
+        let mut app = super::FilmcraftApp::new(filmcraft_engine::Session::default());
+        let before = serde_json::to_value(&app.ui.dock).unwrap();
+        for panel in [json!("Timeline"), json!("Effects"), serde_json::Value::Null] {
+            let outcome = super::handle_ui_set(&mut app, &ctx, &json!({"phonePanel": panel}));
+            assert!(matches!(outcome, super::Outcome::Done(value) if value["ok"] == true));
+            assert_eq!(serde_json::to_value(&app.ui.dock).unwrap(), before);
+        }
+        assert!(app.ui.phone_panel.is_none());
+        let outcome = super::handle_ui_set(&mut app, &ctx, &json!({"phonePanel": "not a panel"}));
+        assert!(matches!(outcome, super::Outcome::Done(value) if value["ok"] == false));
+        assert!(app.ui.phone_panel.is_none());
     }
 }

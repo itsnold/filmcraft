@@ -59,6 +59,24 @@ pub(super) fn draw_headers(app: &mut FilmcraftApp, ui: &mut egui::Ui, seq: &Sequ
         let p = ui.painter().with_clip_rect(visible);
         p.rect_filled(hrect, 0.0, t.tl_header_bg);
         let label = format!("{}{}", if r.kind == TrackKind::Video { "V" } else { "A" }, r.index + 1);
+        if app.ui.phone_panel.is_some() {
+            let mid = hrect.center().x;
+            let target_rect = Rect::from_min_max(hrect.min, pos2(mid, hrect.max.y)).intersect(visible);
+            let lock_rect = Rect::from_min_max(pos2(mid, hrect.min.y), hrect.max).intersect(visible);
+            let targeted = tg.targeted.contains(&r.track);
+            let target = ui.put(target_rect, egui::Button::new(&label).selected(targeted));
+            app.auto.add_response(&format!("timeline.track.{label}.target"), &target, "Toggle track targeting");
+            if target.clicked() {
+                actions.push(("timeline.setTargeting".into(), json!({"track": r.track.0, "targeted": !targeted})));
+            }
+            let lock = ui.put(lock_rect, egui::Button::new(if tr.locked { "Lock" } else { "Free" }));
+            app.auto.add_response(&format!("timeline.track.{label}.locked"), &lock, "Toggle track lock");
+            if lock.clicked() {
+                actions.push(("timeline.setTrack".into(), json!({"track": r.track.0, "locked": !tr.locked})));
+            }
+            track_header_popup(app, ui, visible, &label, r.track, r.kind == TrackKind::Video, &mut header_menu);
+            continue;
+        }
         // right-click anywhere on the header: add or delete tracks, here or through the dialogs of
         // Sequence ▸ Add Tracks… / Delete Tracks… (#1117). Added before the colour strip and the
         // buttons so they win where they overlap; a right-click on one still opens the menu, since it

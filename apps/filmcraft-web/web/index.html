@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="dark">
   <title>FilmCraft</title>
   <link rel="icon" href="favicon.png" type="image/png">
@@ -75,7 +75,23 @@
       const { default: init, start } = await import("./filmcraft_web.js" + v);
       await init({ module_or_path: new URL("filmcraft_web_bg.wasm" + v, location.href) });
       window.filmcraftLoad.wasmMs = performance.now() - t0;
+      // Install touch capture before eframe attaches its native touch listeners.
+      const android = params.has("android");
+      let touch;
+      let adapter;
+      if (android) {
+        touch = await import("./touch.js" + v);
+        adapter = touch.installTouch(document.getElementById("filmcraft_canvas"));
+        touch.installAndroidDownloads();
+      }
       await start("filmcraft_canvas");
+      if (android) {
+        window.filmcraft.dismissTouchOverlay = touch.dismissTouchOverlay;
+        touch.installTouchBar(document.getElementById("filmcraft_canvas"), adapter);
+        const { installPhoneWorkspace } = await import("./phone.js" + v);
+        await installPhoneWorkspace(window.filmcraft).start();
+        try { await touch.applyAndroidDefaults(window.filmcraft, localStorage); } catch (e) { console.warn("Android preferences", e); }
+      }
       window.filmcraftLoad.readyMs = performance.now() - t0;
     } catch (e) {
       const text = String(e && e.stack || e);

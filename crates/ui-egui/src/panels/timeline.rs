@@ -337,6 +337,7 @@ pub fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
     }
     let (v_scroll, a_scroll) = (app.ui.timeline.v_scroll, app.ui.timeline.a_scroll);
     let layout = Layout { content, ruler, rows: rows.clone(), pps, scroll, split_y, v_scroll, a_scroll };
+    app.auto.add("touch.timeline.empty", content, "Timeline selection area");
     app.tl.layout = Some(layout.clone());
 
     // ---- backgrounds
@@ -655,6 +656,10 @@ fn draw_clips(
                 paint_duplicate_stripes(app, &inside, layout, &d.ranges, start - it.start, (body.max.y - 3.0, body.max.y), visible, col, it.id);
             }
             app.auto.add(&format!("timeline.clip.{}", it.id.0), body.intersect(content), &it.name);
+            if !tr.locked {
+                app.auto.add(&format!("touch.clip.{}", it.id.0), body.intersect(p.clip_rect()), &it.name);
+                crate::mobile::trim_targets(app, body, body.intersect(p.clip_rect()), it.id.0);
+            }
             // a nest that runs past the end of its sequence's contents: that part is empty
             if !previews.contains_key(&it.id)
                 && let Some(empty) = app.session.project.nest_overhang(it)
