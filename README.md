@@ -48,8 +48,10 @@ background export and reliability on every device are **not promised**.
 - **Auto / Scroll / Drag** modes: quick timeline swipes navigate without moving clips;
   hold a clip for 500 ms then drag to edit; stationary holds offer context menus.
 - **Pinch zoom**, two-finger scrolling, ruler scrubbing and enlarged trim/zoom targets.
-- **Trim** and **Box select** modes with **Done**; Project panel box selection starts in empty
-  space. Hold a Project item or effect and drag it to the Timeline when both panels are visible.
+- **Trim** and **Box select** modes with **Done**; select in empty Project space, the Timeline,
+  or the Effect Controls keyframe lane. Hold a Project item, media file, effect, preset or graphic
+  template and drag it to the Timeline when both panels are visible. The Effects catalog itself
+  applies individual effects and has no multi-effect box-selection model.
 - **Actions:** split, duplicate, delete, ripple delete and exact one-frame In/Out adjustments
   of the first selected clip and its linked media.
 - Swipeable shortcuts: Undo/Redo, play, Save/Open/Import, Razor, Select, Hand, fit, timeline zoom,

@@ -19,7 +19,11 @@ Adding a second finger ends an active drag; it does not undo it.
 empty timeline time space; occupied clip bodies scroll safely. Both select the Selection tool.
 Box select also works in empty Project/bin space, including gaps between media cards. In Auto,
 hold a Project item, bin or effect and then drag it; quick swipes still scroll, and releasing a
-stationary hold opens the context menu. On phones, Project and Effects show a companion Timeline
+stationary hold opens the context menu. Effect Controls keyframes can be held and moved, or
+box-selected from empty keyframe lane space. Media Browser files, effect presets and graphics
+templates can also be held and dragged. Effects catalog entries themselves do not support
+multi-effect marquee selection in FilmCraft; Box select there will not select multiple effects.
+On phones, Project, Media Browser, Graphics and Effects show a companion Timeline
 when there is room; use More → Show companion panel or rotate if needed. Very small windows may
 omit it; use Tablet layout when both panels cannot fit.
 **Done**, the active mode button or Back leaves the mode. Shift adds to selection; clear modifiers

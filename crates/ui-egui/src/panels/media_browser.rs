@@ -396,6 +396,10 @@ fn toggle(app: &mut FilmcraftApp, path: &str, open: bool) {
 /// Click / double-click / drag / context menu of an entry.
 fn entry_interactions(app: &mut FilmcraftApp, ui: &egui::Ui, resp: &egui::Response, e: &Entry, entries: &[Entry]) {
     let ctx = ui.ctx().clone();
+    // Only files can start a drag; directories must keep their normal navigation behavior.
+    if !e.is_dir {
+        app.auto.add(&format!("touch.mediaBrowser.file.{}", e.path), resp.rect.intersect(ui.clip_rect()), &e.name);
+    }
     if resp.clicked() {
         let mods = crate::panels::project_views::click_modifiers(ui);
         let mut sel = app.session.browser.selection.clone();

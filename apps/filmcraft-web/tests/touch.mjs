@@ -267,6 +267,15 @@ assert.equal(touchTarget(p(70,70), projectLayout, {left:0,top:0}, 2).policy, "ho
 assert.equal(touchTarget(p(10,10), projectLayout, {left:0,top:0}, 2, "box").policy, "drag", "project background starts a marquee");
 assert.equal(touchTarget(p(70,70), projectLayout, {left:0,top:0}, 2, "box").policy, "scroll", "box mode does not move a media item");
 assert.equal(touchTarget(p(70,70), { ...projectLayout, overlay: true }, {left:0,top:0}, 2).policy, "auto", "modal blocks media drags");
+const effectsLayout = { pixelsPerPoint: 2, scrolls: [[0,0,400,400]],
+  holdDrags: [[50,50,200,30]], marqueeBlocks: [[50,50,200,30]] };
+assert.equal(touchTarget(p(70,60), effectsLayout, {left:0,top:0}, 2).policy, "hold-drag", "effects and preset rows arm their actual drag");
+assert.equal(touchTarget(p(70,60), effectsLayout, {left:0,top:0}, 2, "box").policy, "scroll", "effect catalog does not pretend to support multi-selection");
+const keyframeLayout = { pixelsPerPoint: 2, scrolls: [[0,0,400,400]], marquees: [[200,60,180,300]],
+  holdDrags: [[240,100,12,12]], marqueeBlocks: [[240,100,12,12]], controls: [[200,20,180,30]] };
+assert.equal(touchTarget(p(220,160), keyframeLayout, {left:0,top:0}, 2, "box").policy, "drag", "Effect Controls lane supports marquee");
+assert.equal(touchTarget(p(245,105), keyframeLayout, {left:0,top:0}, 2).policy, "hold-drag", "hold Effect Controls keyframes to move them");
+assert.equal(touchTarget(p(220,30), keyframeLayout, {left:0,top:0}, 2).policy, "drag", "Effect Controls ruler remains directly draggable");
 console.log("Android usability: swipe axes, editing overrides, scrollbar hit targets, density, cancellation and scale choices passed");
 // A coalesced quick swipe must not become a tap; cancellation coordinates may be (0,0).
 gesture.down(1, p(100, 200), "auto"); gesture.up(1, p(100, 160));

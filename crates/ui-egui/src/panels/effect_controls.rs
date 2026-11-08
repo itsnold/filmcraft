@@ -222,6 +222,7 @@ pub fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, rect: Rect) {
     let body = Rect::from_min_max(pos2(rect.min.x, head.max.y + 4.0), pos2(split, rect.max.y - 26.0));
     let mut actions: Vec<(String, Value)> = Vec::new();
     let selection_area = Rect::from_min_max(pos2(lane.min.x, bar.max.y), lane.max).intersect(ui.clip_rect());
+    app.auto.add("touch.effectControls.selectionArea", selection_area, "Keyframe selection area");
     let mut keys = Interaction::begin(app, ui, selection_area, clip.0);
     // the rows span the list and the keyframe area: the wheel scrolls anywhere over them and the
     // scrollbar sits at the panel's right edge (#643)
@@ -708,7 +709,7 @@ pub(crate) fn param_row(
             let resp = ui.interact(original.expand(2.0), id, Sense::click_and_drag());
             let reference = KeyframeRef { clip: clip.0, effect: idx, param: pd.id.to_string(), mask, time: k.time };
             let kr = keys.key(app, ui, reference.clone(), it, *lane, original, &resp, k.interp);
-            app.auto.add(&format!("effectControls.{}.{}.keyframe.{}", e.effect, pkey, k.time.0), kr, "keyframe");
+            app.auto.add(&format!("effectControls.{}.{}.keyframe.{}", e.effect, pkey, k.time.0), kr.intersect(ui.clip_rect()).intersect(*lane), "keyframe");
             let selected = app.ui.keyframe_selection.contains(&reference);
             let col = if selected { t.hot_text } else { Color32::from_rgb(0xb0, 0xb0, 0xb0) };
             selection::paint(ui.painter(), kr, k.interp, col);

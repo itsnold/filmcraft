@@ -122,7 +122,7 @@ fn preset_row(app: &mut FilmcraftApp, ui: &mut egui::Ui, p: &EffectPreset, depth
     let x = r.min.x + crate::panels::effects::tree_x(depth + 1) + 18.0;
     icons::paint(ui.painter(), Rect::from_center_size(pos2(x, r.center().y), vec2(13.0, 13.0)), Icon::Sparkle, if p.builtin { t.text_dim } else { t.accent });
     ui.painter().text(pos2(x + 12.0, r.center().y), Align2::LEFT_CENTER, crate::i18n::t(&p.name), Tokens::ui(12.0), t.text);
-    app.auto.add(&format!("effects.preset.{}", p.name), r, &p.name);
+    app.auto.add(&format!("effects.preset.{}", p.name), r.intersect(ui.clip_rect()), &p.name);
     let tip = crate::i18n::t(if p.description.is_empty() { &p.name } else { &p.description }).to_string();
     let resp = resp.on_hover_text(tip);
     if resp.drag_started_by(egui::PointerButton::Primary) {

@@ -30,7 +30,7 @@ pub(crate) fn show(app: &mut FilmcraftApp, ui: &mut egui::Ui, body: Rect) {
     let mut main = body;
     let companion = match kind {
         PanelKind::Timeline | PanelKind::Properties | PanelKind::EffectControls => Some(PanelKind::Program),
-        PanelKind::Project | PanelKind::Effects => Some(PanelKind::Timeline),
+        PanelKind::Project | PanelKind::Effects | PanelKind::MediaBrowser | PanelKind::EssentialGraphics => Some(PanelKind::Timeline),
         _ => None,
     };
     if let Some(companion) = companion.filter(|_| app.ui.phone_preview) {
@@ -73,16 +73,16 @@ pub fn touch_layout(app: &FilmcraftApp, ctx: &egui::Context) -> Value {
         if id.starts_with("panel.drag.") || id.starts_with("panel.gutter.") || id.starts_with("panel.tab.") {
             drags.push(e.rect);
         }
-        if id == "timeline.ruler" || id == "timeline.timecode" {
+        if id == "timeline.ruler" || id == "timeline.timecode" || id == "effectControls.ruler" {
             controls.push(e.rect);
         }
         if id == "timeline.zoomBar.track" {
             tracks.push(e.rect);
         }
-        if id == "touch.timeline.empty" || project_background(id) {
+        if id == "touch.timeline.empty" || id == "touch.effectControls.selectionArea" || project_background(id) {
             marquees.push(e.rect);
         }
-        if id.starts_with("touch.clip.") || id.contains(".kf.") || project_drag_item(id) || effect_drag_item(id) {
+        if draggable_item(id) {
             holds.push(e.rect);
             blocks.push(e.rect);
         }
@@ -108,6 +108,17 @@ pub fn touch_layout(app: &FilmcraftApp, ctx: &egui::Context) -> Value {
     })
 }
 
+/// The registered body (not neighbouring buttons) of an editor item that can actually drag.
+fn draggable_item(id: &str) -> bool {
+    id.starts_with("touch.clip.")
+        || id.contains(".kf.")
+        || (id.starts_with("effectControls.") && id.contains(".keyframe."))
+        || id.starts_with("touch.mediaBrowser.file.")
+        || id.starts_with("gfxTemplates.item.")
+        || project_drag_item(id)
+        || effect_drag_item(id)
+}
+
 /// Only item and bin bodies, not their nested buttons, are draggable project targets.
 fn project_drag_item(id: &str) -> bool {
     let Some((body, number)) = id.rsplit_once('.') else { return false };
@@ -126,7 +137,7 @@ fn project_background(id: &str) -> bool {
 
 /// Effects, Lumetri looks and preset tiles support the editor's native drag path.
 fn effect_drag_item(id: &str) -> bool {
-    id.starts_with("effects.item.") || id.starts_with("effects.lumetriPreset.") || id.starts_with("effects.presetGrid.")
+    id.starts_with("effects.item.") || id.starts_with("effects.preset.") || id.starts_with("effects.lumetriPreset.") || id.starts_with("effects.presetGrid.")
 }
 
 /// Remember numeric scrub targets for this pass only, clipped to the panel that painted them.
@@ -197,7 +208,13 @@ mod tests {
         assert!(project_background("project.freeform"));
         assert!(!project_background("timeline.empty"));
         assert!(effect_drag_item("effects.item.blur"));
+        assert!(effect_drag_item("effects.preset.Fade"));
         assert!(effect_drag_item("effects.presetGrid.Warm"));
         assert!(!effect_drag_item("effects.folder.Video"));
+        assert!(draggable_item("touch.mediaBrowser.file./clip.mp4"));
+        assert!(!draggable_item("mediaBrowser.entry.folder"));
+        assert!(draggable_item("gfxTemplates.item.title"));
+        assert!(draggable_item("effectControls.motion.position.keyframe.42"));
+        assert!(!draggable_item("effectControls.ruler"));
     }
 }

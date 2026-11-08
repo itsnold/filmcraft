@@ -345,7 +345,7 @@ export function installTouchBar(canvas, { modifiers, controls }) {
     controls.mode = modes[(modes.indexOf(controls.mode) + 1) % modes.length];
     updateModes();
   });
-  const box = button("Box select", "Toggle box selection in the timeline or Project panel: drag from empty space", () => {
+  const box = button("Box select", "Toggle box selection in the Timeline, Project or Effect Controls keyframe lane", () => {
     controls.mode = controls.mode === "box" ? "auto" : "box";
     updateModes();
     return window.filmcraft.request("ui.set", { tool: "Selection" });
@@ -399,8 +399,9 @@ export function installTouchBar(canvas, { modifiers, controls }) {
     "Drag the time ruler / playhead to scrub; drag the bottom time-zoom slider or top navigator handles to change the time scale. " +
     "Time − / Time + / Fit time change timeline zoom; Frame ‹ / Frame › place the playhead one frame at a time. " +
      "Hold a clip until the vibration, then drag to move or trim it. " +
-    "For a selection rectangle, tap Box select, then drag from empty timeline or Project panel space. Shift adds to selection. " +
-    "In Project and Effects, hold an item then drag it to the timeline when both panels are visible. " +
+    "For a selection rectangle, tap Box select, then drag from empty timeline, Project panel or Effect Controls keyframe lane space. Shift adds to selection. " +
+    "In Project, Media Browser, Effects or Graphics, hold a draggable item then drag it to the timeline when both panels are visible. " +
+    "The Effects catalog applies individual effects; it does not support box-selecting multiple effects. " +
     "Tap Trim, then drag near a clip's left/right edge to shorten or extend it without a hold. Tap the active Box select or Trim button again to return to Auto. " +
     "In Auto, hold empty timeline space to draw a selection box; hold near a clip edge to trim. Keep the same finger down while moving. " +
     "Release a hold without moving for options. Swipe left/right directly on a number to adjust it; swipe vertically to scroll. " +
