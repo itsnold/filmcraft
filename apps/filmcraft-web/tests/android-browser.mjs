@@ -123,8 +123,11 @@ try {
     await until("filmcraft.touchLayout().phonePanel==='Project'");
     // Demo media starts inside a collapsed Footage bin, and the panel needs a frame to draw.
     await until("(async()=>{const e=await filmcraft.request('ui.elements',{prefix:'project.bin.'});return e.some(x=>x.label==='Footage')})()", 30000);
-    const footage = await js("(async()=> (await filmcraft.request('ui.elements',{prefix:'project.bin.'})).find(x=>x.label==='Footage').id)()");
-    await js(`filmcraft.request('ui.click',{id:${JSON.stringify(footage + '.toggle')}})`);
+    const toggle = await js("(async()=>{const e=await filmcraft.request('ui.elements',{prefix:'project.bin.'});const b=e.find(x=>x.label==='Footage');return e.find(x=>x.id===b.id+'.toggle').rect})()");
+    const canvas = await js("(()=>{const r=document.querySelector('canvas').getBoundingClientRect();return {left:r.left,top:r.top,scale:filmcraft.touchLayout().pixelsPerPoint/devicePixelRatio}})()");
+    const binPoint = { x: canvas.left + (toggle[0] + toggle[2] / 2) * canvas.scale, y: canvas.top + (toggle[1] + toggle[3] / 2) * canvas.scale };
+    await touch("touchStart", [binPoint]);
+    await touch("touchEnd", []);
     await until("(async()=>{const e=await filmcraft.request('ui.elements',{prefix:'project.item.'});return e.some(x=>/^project\\.item\\.\\d+$/.test(x.id)&&x.rect[2]>0&&x.rect[3]>0)})()", 30000);
     const project = await js("(async()=>({layout:filmcraft.touchLayout(),elements:await filmcraft.request('ui.elements',{prefix:'project.item.'})}))()");
     const media = project.elements.find(e => /^project\.item\.\d+$/.test(e.id) && e.rect[2] > 0 && e.rect[3] > 0);
