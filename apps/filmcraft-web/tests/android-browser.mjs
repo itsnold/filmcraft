@@ -137,5 +137,6 @@ try {
 } finally {
   clearTimeout(deadline); socket?.close(); browser.kill(); server.close();
   await new Promise(r => browser.exitCode !== null || browser.signalCode !== null ? r() : browser.once("exit", r));
-  await rm(profile, { recursive: true, force: true });
+  // Chromium subprocesses may finish profile writes just after the parent exits.
+  await rm(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
 }

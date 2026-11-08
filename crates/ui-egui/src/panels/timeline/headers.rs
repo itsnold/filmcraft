@@ -63,6 +63,43 @@ fn phone_header(
 /// Draw only the visible track headers, including colour label, targeting, lock and header controls clipped to each row.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn draw_headers(app: &mut FilmcraftApp, ui: &mut egui::Ui, seq: &Sequence, rows: &[Row], rect: Rect, vclip: Rect, aclip: Rect, t: &Tokens) {
+    if app.ui.phone_panel.is_some() {
+        draw_phone_headers(app, ui, seq, rows, rect, vclip, aclip);
+    } else {
+        draw_desktop_headers(app, ui, seq, rows, rect, vclip, aclip, t);
+    }
+}
+
+/// Phone targeting/lock controls and the same track menus/command path as the desktop.
+fn draw_phone_headers(app: &mut FilmcraftApp, ui: &mut egui::Ui, seq: &Sequence, rows: &[Row], rect: Rect, vclip: Rect, aclip: Rect) {
+    let hw = app.ui.timeline.header_w;
+    let tg = app.session.targeting();
+    let mut actions = Vec::new();
+    let mut menu = None;
+    let column = Rect::from_min_max(pos2(rect.min.x, vclip.min.y), pos2(rect.min.x + hw, aclip.max.y));
+    ui.interact(column, egui::Id::unique("hdr-column-menu"), Sense::click()).context_menu(|ui| track_column_menu(app, ui, &mut menu));
+    for row in rows {
+        let Some(track) = seq.track(row.track) else { continue };
+        let clip = if row.kind == TrackKind::Video { vclip } else { aclip };
+        let visible = Rect::from_min_max(pos2(rect.min.x, row.rect.min.y), pos2(rect.min.x + hw, row.rect.max.y)).intersect(clip);
+        if visible.height() <= 0.0 {
+            continue;
+        }
+        let label = format!("{}{}", if row.kind == TrackKind::Video { "V" } else { "A" }, row.index + 1);
+        actions.extend(phone_header(app, ui, track, &label, visible, tg.targeted.contains(&row.track)));
+        track_header_popup(app, ui, visible, &label, row.track, row.kind == TrackKind::Video, &mut menu);
+    }
+    for (command, params) in actions {
+        if let Err(error) = app.session.execute(&command, params) {
+            app.ui.status = error.to_string();
+        }
+    }
+    run_track_menu(app, ui, menu);
+}
+
+/// Original desktop headers, kept independent of phone layout branching.
+#[allow(clippy::too_many_arguments)]
+fn draw_desktop_headers(app: &mut FilmcraftApp, ui: &mut egui::Ui, seq: &Sequence, rows: &[Row], rect: Rect, vclip: Rect, aclip: Rect, t: &Tokens) {
     let hw = app.ui.timeline.header_w;
     let tg = app.session.targeting();
     let mut actions: Vec<(String, Value)> = Vec::new();
@@ -85,11 +122,6 @@ pub(super) fn draw_headers(app: &mut FilmcraftApp, ui: &mut egui::Ui, seq: &Sequ
         let p = ui.painter().with_clip_rect(visible);
         p.rect_filled(hrect, 0.0, t.tl_header_bg);
         let label = format!("{}{}", if r.kind == TrackKind::Video { "V" } else { "A" }, r.index + 1);
-        if app.ui.phone_panel.is_some() {
-            actions.extend(phone_header(app, ui, tr, &label, visible, tg.targeted.contains(&r.track)));
-            track_header_popup(app, ui, visible, &label, r.track, r.kind == TrackKind::Video, &mut header_menu);
-            continue;
-        }
         // right-click anywhere on the header: add or delete tracks, here or through the dialogs of
         // Sequence ▸ Add Tracks… / Delete Tracks… (#1117). Added before the colour strip and the
         // buttons so they win where they overlap; a right-click on one still opens the menu, since it
