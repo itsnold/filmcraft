@@ -119,10 +119,12 @@ try {
     assert(geometry.holdDrags.length > 0, "actual engine registers visible clip targets");
     assert(geometry.trims.length > 0, "actual engine registers visible trim edges");
     await js("filmcraft.saveRecovery()");
+    // List view exposes the bin disclosure control; icon view opens bins differently.
+    await js("filmcraft.execute('project.view.set',{view:'list'})");
     await js("[...document.querySelectorAll('#phone-nav button')].find(b=>b.textContent==='Media').click()");
     await until("filmcraft.touchLayout().phonePanel==='Project'");
     // Demo media starts inside a collapsed Footage bin, and the panel needs a frame to draw.
-    await until("(async()=>{const e=await filmcraft.request('ui.elements',{prefix:'project.bin.'});return e.some(x=>x.label==='Footage')})()", 30000);
+    await until("(async()=>{const e=await filmcraft.request('ui.elements',{prefix:'project.bin.'});const b=e.find(x=>x.label==='Footage');return b&&e.some(x=>x.id===b.id+'.toggle')})()", 30000);
     const toggle = await js("(async()=>{const e=await filmcraft.request('ui.elements',{prefix:'project.bin.'});const b=e.find(x=>x.label==='Footage');return e.find(x=>x.id===b.id+'.toggle').rect})()");
     const canvas = await js("(()=>{const r=document.querySelector('canvas').getBoundingClientRect();return {left:r.left,top:r.top,scale:filmcraft.touchLayout().pixelsPerPoint/devicePixelRatio}})()");
     const binPoint = { x: canvas.left + (toggle[0] + toggle[2] / 2) * canvas.scale, y: canvas.top + (toggle[1] + toggle[3] / 2) * canvas.scale };
