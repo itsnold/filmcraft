@@ -98,7 +98,7 @@ pub fn touch_layout(app: &FilmcraftApp, ctx: &egui::Context) -> Value {
         "marquees": marquees, "marqueeBlocks": blocks, "trims": trims,
         "overlay": app.dialog.is_some() || app.ui.clip_dialog.is_some() || app.ui.extras.dialog.is_some()
             || ctx.memory(|m| m.top_modal_layer().is_some()) || egui::Popup::is_any_open(ctx),
-        "keyboardFocus": ctx.wants_keyboard_input(),
+        "keyboardFocus": ctx.egui_wants_keyboard_input(),
         "selection": {"clips": app.session.state.selection.len()}
     })
 }

@@ -70,9 +70,17 @@ jobs:
           packages: platform-tools
           log-accepted-android-sdk-licenses: false
       - run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Install checksum-pinned Gradle distribution
+        # Avoid the version-metadata API's 504s; verify the official distribution before use.
+        run: |
+          archive="$RUNNER_TEMP/gradle-8.13-bin.zip"
+          curl --fail --location --retry 4 --retry-all-errors --connect-timeout 30 --max-time 600 https://downloads.gradle.org/distributions/gradle-8.13-bin.zip -o "$archive"
+          echo "20f1b1176237254a6fc204d8434196fa11a4cfb387567519c61556e8710aed78  $archive" | sha256sum --check --strict
+          unzip -q "$archive" -d "$RUNNER_TEMP/fcdroid-gradle"
+          echo "$RUNNER_TEMP/fcdroid-gradle/gradle-8.13/bin" >> "$GITHUB_PATH"
       - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: "8.13"
+          cache-read-only: false
       - name: Lint Android shell before compiling WASM
         run: gradle -p packaging/android :app:lintDebug -x :app:bundleEditor --stacktrace
       - uses: dtolnay/rust-toolchain@1.95.0
