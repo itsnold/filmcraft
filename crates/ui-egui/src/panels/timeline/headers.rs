@@ -34,6 +34,32 @@ fn patch_button(ui: &mut egui::Ui, button: PatchButton<'_>) -> egui::Response {
     resp
 }
 
+/// Compact phone controls; return commands for the same deferred execution as desktop headers.
+fn phone_header(
+    app: &mut FilmcraftApp,
+    ui: &mut egui::Ui,
+    track: &filmcraft_project::Track,
+    label: &str,
+    visible: Rect,
+    targeted: bool,
+) -> Vec<(String, Value)> {
+    let mut actions = Vec::new();
+    let mid = visible.center().x;
+    let target_rect = Rect::from_min_max(visible.min, pos2(mid, visible.max.y));
+    let lock_rect = Rect::from_min_max(pos2(mid, visible.min.y), visible.max);
+    let target = ui.put(target_rect, egui::Button::new(label).selected(targeted));
+    app.auto.add_response(&format!("timeline.track.{label}.target"), &target, "Toggle track targeting");
+    if target.clicked() {
+        actions.push(("timeline.setTargeting".into(), json!({"track": track.id.0, "targeted": !targeted})));
+    }
+    let lock = ui.put(lock_rect, egui::Button::new(if track.locked { "Lock" } else { "Free" }));
+    app.auto.add_response(&format!("timeline.track.{label}.locked"), &lock, "Toggle track lock");
+    if lock.clicked() {
+        actions.push(("timeline.setTrack".into(), json!({"track": track.id.0, "locked": !track.locked})));
+    }
+    actions
+}
+
 /// Draw only the visible track headers, including colour label, targeting, lock and header controls clipped to each row.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn draw_headers(app: &mut FilmcraftApp, ui: &mut egui::Ui, seq: &Sequence, rows: &[Row], rect: Rect, vclip: Rect, aclip: Rect, t: &Tokens) {
@@ -60,20 +86,7 @@ pub(super) fn draw_headers(app: &mut FilmcraftApp, ui: &mut egui::Ui, seq: &Sequ
         p.rect_filled(hrect, 0.0, t.tl_header_bg);
         let label = format!("{}{}", if r.kind == TrackKind::Video { "V" } else { "A" }, r.index + 1);
         if app.ui.phone_panel.is_some() {
-            let mid = hrect.center().x;
-            let target_rect = Rect::from_min_max(hrect.min, pos2(mid, hrect.max.y)).intersect(visible);
-            let lock_rect = Rect::from_min_max(pos2(mid, hrect.min.y), hrect.max).intersect(visible);
-            let targeted = tg.targeted.contains(&r.track);
-            let target = ui.put(target_rect, egui::Button::new(&label).selected(targeted));
-            app.auto.add_response(&format!("timeline.track.{label}.target"), &target, "Toggle track targeting");
-            if target.clicked() {
-                actions.push(("timeline.setTargeting".into(), json!({"track": r.track.0, "targeted": !targeted})));
-            }
-            let lock = ui.put(lock_rect, egui::Button::new(if tr.locked { "Lock" } else { "Free" }));
-            app.auto.add_response(&format!("timeline.track.{label}.locked"), &lock, "Toggle track lock");
-            if lock.clicked() {
-                actions.push(("timeline.setTrack".into(), json!({"track": r.track.0, "locked": !tr.locked})));
-            }
+            actions.extend(phone_header(app, ui, tr, &label, visible, tg.targeted.contains(&r.track)));
             track_header_popup(app, ui, visible, &label, r.track, r.kind == TrackKind::Video, &mut header_menu);
             continue;
         }
