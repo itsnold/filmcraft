@@ -1,7 +1,7 @@
 # Upstream FilmCraft README
 
 Preserved from FilmCraft v0.18.0 for engine/desktop reference. For this unofficial
-Android fork, installation and limitations, read [FCDroid](README.md).
+Android fork, installation and limitations, read [FilmCraft for Android](README.md).
 
 
 <p align="center">
