@@ -23,7 +23,7 @@ window.filmcraft={touchLayout:()=>layout, dismissTouchOverlay, inspect:async()=>
  if(method==='ui.set'&&'phonePanel' in params)layout.phonePanel=params.phonePanel;
  if(method==='ui.menu.list')return [{id:'file.open',label:'Open',path:['File'],enabled:true}];}};
 const canvas=document.querySelector('canvas');const adapter=installTouch(canvas);installTouchBar(canvas,adapter);
-for(const type of ['pointerdown','pointerup','wheel'])canvas.addEventListener(type,e=>events.push({type,dy:e.deltaY,dx:e.deltaX,button:e.button}));
+for(const type of ['pointerdown','pointerup','wheel','mousemove'])canvas.addEventListener(type,e=>events.push({type,dy:e.deltaY,dx:e.deltaX,button:e.button,shift:e.shiftKey,trusted:e.isTrusted}));
 await installPhoneWorkspace(filmcraft).start();window.ready=true;
 </script>`;
 const mime = { ".js": "text/javascript", ".html": "text/html", ".wasm": "application/wasm", ".png": "image/png" };
@@ -112,6 +112,29 @@ try {
     assert(!events.some(e => e.type === "pointerdown"), "quick swipe must not edit a clip");
     await js("[...document.querySelectorAll('#touch-bar button')].find(b=>b.textContent==='Shift').click()");
     assert.equal(await js("[...document.querySelectorAll('#touch-bar button')].find(b=>b.textContent==='Shift').getAttribute('aria-pressed')"), "true");
+    const pen = (type, x, y, button = "none", buttons = 0) => send("Input.dispatchMouseEvent",
+      { type, x, y, button, buttons, pointerType: "pen", clickCount: button === "none" ? 0 : 1 });
+    await js("events.splice(0)");
+    await pen("mouseMoved", 100, area + 170);
+    let penEvents = await js("events.splice(0)");
+    assert(penEvents.some(e => e.type === "mousemove" && e.shift && !e.trusted), "pen hover gets the latched modifier");
+    assert(!penEvents.some(e => e.type === "mousemove" && e.trusted), "native compatibility moves are suppressed");
+    await pen("mousePressed", 100, area + 170, "left", 1);
+    await pen("mouseMoved", 160, area + 170, "none", 1);
+    await pen("mouseReleased", 180, area + 170, "left");
+    penEvents = await js("events.splice(0)");
+    assert.equal(penEvents.filter(e => e.type === "pointerdown" && e.button === 0 && e.shift).length, 1, "pen drag uses on-screen Shift once");
+    assert.equal(penEvents.filter(e => e.type === "pointerup").length, 1, "pen releases once");
+    assert(!penEvents.some(e => e.type === "wheel"), "quick pen drag edits instead of finger scrolling");
+    await pen("mousePressed", 100, area + 170, "left", 1);
+    await pause(550);
+    await pen("mouseReleased", 100, area + 170, "left");
+    penEvents = await js("events.splice(0)");
+    assert.deepEqual(penEvents.filter(e => e.type === "pointerdown" || e.type === "pointerup").map(e => e.button), [2, 2], "stationary pen hold opens context without a left click");
+    await pen("mousePressed", 100, area + 170, "right", 2);
+    await pen("mouseReleased", 100, area + 170, "right");
+    penEvents = await js("events.splice(0)");
+    assert.deepEqual(penEvents.filter(e => e.type === "pointerdown" || e.type === "pointerup").map(e => e.button), [2, 2], "pen barrel click opens one context menu");
   } else {
     await js("filmcraft.request('ui.menu.invoke',{id:'view.zoomToSequence'})");
     await pause(1000);

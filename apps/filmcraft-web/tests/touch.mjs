@@ -285,3 +285,6 @@ gesture.down(1, p(100, 200)); gesture.move(1, p(140, 200)); types();
 gesture.up(1, p(0, 0), true);
 const cancelledDrag = events.splice(0);
 assert(cancelledDrag.every(e => e.x === 140 && e.y === 200), "capture loss must not jump an edit to the screen origin");
+
+// Included here so the existing Android Node quality gate always covers pen integration too.
+await import("./stylus.mjs");
