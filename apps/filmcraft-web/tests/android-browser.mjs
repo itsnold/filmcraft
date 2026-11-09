@@ -120,21 +120,37 @@ try {
     assert(penEvents.some(e => e.type === "mousemove" && e.shift && !e.trusted), "pen hover gets the latched modifier");
     assert(!penEvents.some(e => e.type === "mousemove" && e.trusted), "native compatibility moves are suppressed");
     await pen("mousePressed", 100, area + 170, "left", 1);
+    penEvents = await js("events.splice(0)");
+    assert.equal(penEvents.filter(e => e.type === "pointerdown" && e.button === 0 && e.shift).length, 1, "pen presses immediately, like ECDroid");
     await pen("mouseMoved", 160, area + 170, "none", 1);
     await pen("mouseReleased", 180, area + 170, "left");
     penEvents = await js("events.splice(0)");
-    assert.equal(penEvents.filter(e => e.type === "pointerdown" && e.button === 0 && e.shift).length, 1, "pen drag uses on-screen Shift once");
+    assert.equal(penEvents.filter(e => e.type === "pointerdown").length, 0, "pen movement never repeats the initial press");
     assert.equal(penEvents.filter(e => e.type === "pointerup").length, 1, "pen releases once");
     assert(!penEvents.some(e => e.type === "wheel"), "quick pen drag edits instead of finger scrolling");
-    await pen("mousePressed", 100, area + 170, "left", 1);
-    await pause(550);
-    await pen("mouseReleased", 100, area + 170, "left");
-    penEvents = await js("events.splice(0)");
-    assert.deepEqual(penEvents.filter(e => e.type === "pointerdown" || e.type === "pointerup").map(e => e.button), [2, 2], "stationary pen hold opens context without a left click");
+    const options = "[...document.querySelectorAll('#touch-bar button')].find(b=>b.textContent==='Options')";
+    for (const pointer of ["pen", "touch"]) {
+      await js(`${options}.click()`);
+      assert.equal(await js(`${options}.getAttribute('aria-pressed')`), "true");
+      if (pointer === "pen") {
+        await pen("mousePressed", 100, area + 170, "left", 1);
+        await pen("mouseReleased", 100, area + 170, "left");
+      } else {
+        await touch("touchStart", [{ x: 100, y: area + 170 }]); await touch("touchEnd", []);
+      }
+      penEvents = await js("events.splice(0)");
+      assert.deepEqual(penEvents.filter(e => e.type === "pointerdown" || e.type === "pointerup").map(e => e.button), [2, 2], `${pointer} Options opens context without a left click`);
+      assert.equal(await js(`${options}.getAttribute('aria-pressed')`), "false", "Options resets after one gesture");
+    }
     await pen("mousePressed", 100, area + 170, "right", 2);
     await pen("mouseReleased", 100, area + 170, "right");
     penEvents = await js("events.splice(0)");
     assert.deepEqual(penEvents.filter(e => e.type === "pointerdown" || e.type === "pointerup").map(e => e.button), [2, 2], "pen barrel click opens one context menu");
+    await pen("mousePressed", 100, area + 170, "right", 2);
+    await pen("mouseMoved", 160, area + 170, "none", 2);
+    await pen("mouseReleased", 100, area + 170, "right");
+    penEvents = await js("events.splice(0)");
+    assert(!penEvents.some(e => e.type === "pointerdown" || e.type === "pointerup"), "moving a barrel gesture cancels the menu even when returning to origin");
   } else {
     await js("filmcraft.request('ui.menu.invoke',{id:'view.zoomToSequence'})");
     await pause(1000);

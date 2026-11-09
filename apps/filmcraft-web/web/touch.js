@@ -1,11 +1,10 @@
 // Original Android/tablet input adapter. No proprietary UI code or artwork.
 // Keep gesture arbitration independent of the DOM so it can be regression-tested under Node.
 export class TouchGesture {
-  constructor(emit, schedule = (fn, delay) => globalThis.setTimeout(fn, delay), cancel = (id) => globalThis.clearTimeout(id), slop = 9) {
+  constructor(emit, schedule = (fn, delay) => globalThis.setTimeout(fn, delay), cancel = (id) => globalThis.clearTimeout(id)) {
     this.emit = emit;
     this.schedule = schedule;
     this.cancel = cancel;
-    this.slop = slop;
     this.points = new Map();
     this.reset();
   }
@@ -36,6 +35,7 @@ export class TouchGesture {
         if (this.mode !== "pending") return;
         // Editable targets arm a primary drag; don't open a menu under the held finger.
         // Releasing without moving still offers that target's context menu.
+        if (this.policy === "context") return;
         this.mode = ["hold-drag", "drag", "scrub"].includes(this.policy) ? "armed" : "held";
         if (this.mode === "held") this.context(p);
         this.emit({ type: "haptic" });
@@ -57,11 +57,11 @@ export class TouchGesture {
     if (!this.points.has(id) || ![p.x, p.y].every(Number.isFinite)) return;
     this.points.set(id, p);
     if (this.points.size === 1) {
-      if (["pending", "armed"].includes(this.mode) && Math.hypot(p.x - this.origin.x, p.y - this.origin.y) > this.slop) {
+      if (["pending", "armed"].includes(this.mode) && Math.hypot(p.x - this.origin.x, p.y - this.origin.y) > 9) {
         this.cancel(this.timer);
         const dx = Math.abs(p.x - this.origin.x), dy = Math.abs(p.y - this.origin.y);
         const armed = this.mode === "armed";
-        this.mode = !armed && (this.policy === "scroll" || this.policy === "hold-drag" ||
+        this.mode = !armed && (["scroll", "context", "hold-drag"].includes(this.policy) ||
           (["auto", "scrub"].includes(this.policy) && dy > dx)) ? "scroll" : "drag";
         this.scrollAxis = dy > dx ? "y" : "x";
         if (this.mode === "drag") {
@@ -100,15 +100,18 @@ export class TouchGesture {
     if (!this.points.has(id)) return;
     if (cancelled || ![p.x, p.y].every(Number.isFinite)) p = this.points.get(id);
     if (!cancelled && this.points.size === 1 &&
-        ((["pending", "armed"].includes(this.mode) && Math.hypot(p.x - this.origin.x, p.y - this.origin.y) > this.slop) ||
+        ((["pending", "armed"].includes(this.mode) && Math.hypot(p.x - this.origin.x, p.y - this.origin.y) > 9) ||
          (this.mode === "scroll" && (p.x !== this.previous.x || p.y !== this.previous.y)))) this.move(id, p);
     this.cancel(this.timer);
     if (this.mode === "armed" && !cancelled) {
       this.context(this.origin);
     } else if (this.mode === "pending" && !cancelled) {
-      this.pointer("move", p);
-      this.pointer("down", p);
-      this.pointer("up", p);
+      if (this.policy === "context") this.context(p);
+      else {
+        this.pointer("move", p);
+        this.pointer("down", p);
+        this.pointer("up", p);
+      }
     } else if (this.mode === "drag") {
       // Fast flicks may end between animation frames; deliver the final position too.
       this.pointer("move", p);
@@ -126,11 +129,60 @@ export class TouchGesture {
   }
 }
 
+// A pen is a precision pointer, not a finger: primary edits begin immediately.
+// Only explicit Scroll / blocked Box / blocked Trim gestures become wheel input.
+export class PenGesture {
+  constructor(emit) { this.emit = emit; this.stroke = null; }
+  down(id, p, policy = "drag", button = 0) {
+    if (this.stroke || ![0, 1, 2].includes(button) || ![p.x, p.y].every(Number.isFinite)) return;
+    this.stroke = { id, origin: p, previous: p, policy: button === 2 ? "context" : policy, button };
+    if (this.stroke.policy === "drag") {
+      this.emit({ ...p, type: "move" });
+      this.emit({ ...p, type: "down", button });
+    }
+  }
+  move(id, p) {
+    const s = this.stroke;
+    if (!s || s.id !== id || ![p.x, p.y].every(Number.isFinite)) return;
+    if (Math.hypot(p.x - s.origin.x, p.y - s.origin.y) > 6) s.moved = true;
+    if (s.policy === "drag") this.emit({ ...p, type: "move" });
+    else if (s.policy === "scroll") {
+      if (!s.axis) {
+        const dx = Math.abs(p.x - s.origin.x), dy = Math.abs(p.y - s.origin.y);
+        if (Math.max(dx, dy) < 3) return;
+        s.axis = dy > dx ? "y" : "x";
+      }
+      this.emit({ ...s.origin, type: "wheel", dx: s.axis === "x" ? s.previous.x - p.x : 0,
+        dy: s.axis === "y" ? s.previous.y - p.y : 0, zoom: false });
+    }
+    s.previous = p;
+  }
+  up(id, p, cancelled = false) {
+    const s = this.stroke;
+    if (!s || s.id !== id) return;
+    if (cancelled || ![p.x, p.y].every(Number.isFinite)) p = s.previous;
+    if (s.policy === "scroll" && !cancelled && (p.x !== s.previous.x || p.y !== s.previous.y)) this.move(id, p);
+    if (s.policy === "drag") {
+      this.emit({ ...p, type: "move" });
+      this.emit({ ...p, type: "up", button: s.button });
+    } else if (s.policy === "scroll" && !s.axis && !cancelled) {
+      this.emit({ ...p, type: "move" });
+      this.emit({ ...p, type: "down", button: s.button });
+      this.emit({ ...p, type: "up", button: s.button });
+    } else if (s.policy === "context" && !s.moved && !cancelled && Math.hypot(p.x - s.origin.x, p.y - s.origin.y) <= 6) {
+      // Barrel / Options is a context click, never an initial primary selection.
+      this.emit({ ...p, type: "move" });
+      this.emit({ ...p, type: "down", button: 2 });
+      this.emit({ ...p, type: "up", button: 2 });
+    }
+    this.stroke = null;
+  }
+  cancelAll() { if (this.stroke) this.up(this.stroke.id, this.stroke.previous, true); }
+}
+
 // All rects come from the completed egui frame, in points. Convert via the actual UI
 // scale and canvas origin, not screen resolution (Android density and UI Scale differ).
-export function touchTarget(p, layout, bounds, density = 1, mode = "auto", pointerType = "touch") {
-  const pen = pointerType === "pen";
-  if (pen && mode === "scroll") return { policy: "scroll", offset: { x: 0, y: 0 } };
+export function touchTarget(p, layout, bounds, density = 1, mode = "auto") {
   if (layout?.overlay && ["box", "trim"].includes(mode)) mode = "auto";
   const scale = (layout?.pixelsPerPoint || density) / density;
   const point = { x: (p.x - bounds.left) / scale, y: (p.y - bounds.top) / scale };
@@ -139,7 +191,7 @@ export function touchTarget(p, layout, bounds, density = 1, mode = "auto", point
   // These are the numeric widgets actually painted this frame, clipped to their panels.
   // They take precedence over timeline scrolling, including numbers in modal dialogs.
   if (mode === "auto" && (layout?.scrubs || []).some(contains)) {
-    return { policy: pen ? "drag" : "scrub", offset: { x: 0, y: 0 } };
+    return { policy: "scrub", offset: { x: 0, y: 0 } };
   }
   // Thin desktop trim zones straddle each end of the bar. Snap a near miss to the real
   // zone, never to the body or an offscreen edge. Choose the nearest edge on short clips.
@@ -150,14 +202,12 @@ export function touchTarget(p, layout, bounds, density = 1, mode = "auto", point
       if (rect?.length !== 4 || clip?.length !== 4 || !rect.every(Number.isFinite) || !clip.every(Number.isFinite)) continue;
       const [x, y, w, h] = rect;
       if (w <= 0 || h <= 0 || !contains(clip)) continue;
-      const margin = pen && mode !== "trim" ? 0 : Math.max(0, ((pen ? 12 : 32) / scale - w) / 2);
+      const margin = Math.max(0, (32 / scale - w) / 2);
       if (!contains([x - margin, y, w + 2 * margin, h])) continue;
       const distance = Math.abs(point.x - x - w / 2);
       if (!nearest || distance < nearest.distance) nearest = { rect, distance };
     }
     if (nearest) {
-      // A precise pen hit must not jump to the centre or grab a neighbouring clip edge.
-      if (pen && mode !== "trim") return { policy: "drag", offset: { x: 0, y: 0 } };
       const [x, y, w, h] = nearest.rect;
       return { policy: mode === "auto" ? "hold-drag" : "drag", offset: {
         x: bounds.left + (x + w / 2) * scale - p.x,
@@ -177,7 +227,7 @@ export function touchTarget(p, layout, bounds, density = 1, mode = "auto", point
     for (const rect of [...(layout?.controlTracks || []), ...(layout?.scrollbars || [])]) {
       const [x, y, w, h] = rect;
       const vertical = h >= w;
-      const margin = Math.max(0, ((pen ? 12 : 24) / scale - (vertical ? w : h)) / 2);
+      const margin = Math.max(0, (24 / scale - (vertical ? w : h)) / 2);
       const hit = vertical ? contains([x - margin, y, w + 2 * margin, h]) : contains([x, y - margin, w, h + 2 * margin]);
       if (hit) return { policy: "drag", offset: vertical
         ? { x: bounds.left + (x + w / 2) * scale - p.x, y: 0 }
@@ -191,114 +241,117 @@ export function touchTarget(p, layout, bounds, density = 1, mode = "auto", point
   }
   const editing = !layout?.overlay && [...(layout?.viewers || []), ...(layout?.drags || [])].some((rect) => contains(rect));
   const scrolling = !layout?.overlay && (layout?.scrolls || []).some((rect) => contains(rect));
-  if (!pen && mode === "auto" && !layout?.overlay && ((layout?.holdDrags || []).some(contains) || marquee)) {
+  if (mode === "auto" && !layout?.overlay && ((layout?.holdDrags || []).some(contains) || marquee)) {
     return { policy: "hold-drag", offset: { x: 0, y: 0 } };
   }
-  return { policy: mode === "auto" ? (pen || editing ? "drag" : scrolling ? "scroll" : "auto") : mode, offset: { x: 0, y: 0 } };
+  return { policy: mode === "auto" ? (editing ? "drag" : scrolling ? "scroll" : "auto") : mode, offset: { x: 0, y: 0 } };
 }
 
 export function installTouch(canvas, getLayout = () => window.filmcraft?.touchLayout?.()) {
   const modifiers = { shiftKey: false, altKey: false, ctrlKey: false };
-  const controls = { mode: "auto" };
+  const controls = { mode: "auto", context: false };
   let buttons = 0;
   let offset = { x: 0, y: 0 };
   // Keep owning native contacts until their physical release, even after blur/resize
   // has cancelled the logical gesture. Otherwise its later touch-up leaks to eframe
   // as a second release and may activate the widget now underneath that finger.
   const contacts = new Set();
-  const penContacts = new Set();
-  let activePen = null;
-  let penInRange = false;
-  const emit = (event) => {
+  const pens = new Set();
+  const forwarded = new WeakSet();
+  let lastPointer = "mouse";
+  const forward = (event) => { forwarded.add(event); canvas.dispatchEvent(event); };
+  const dispatch = (event, pointerType = "mouse") => {
     if (event.type === "haptic") { navigator.vibrate?.(15); return; }
-    const common = { bubbles: true, cancelable: true, clientX: event.x, clientY: event.y };
-    for (const key of Object.keys(modifiers)) common[key] = modifiers[key] || !!event[key];
+    const common = { ...event, bubbles: true, cancelable: true, clientX: event.x, clientY: event.y,
+      shiftKey: !!(event.shiftKey || modifiers.shiftKey), altKey: !!(event.altKey || modifiers.altKey),
+      ctrlKey: !!(event.ctrlKey || modifiers.ctrlKey) };
     if (event.type === "wheel") {
       // A latched editing modifier must not turn panel scrolling into zoom/constrained scroll.
       // eframe also keeps modifiers from mousemove in RawInput (Timeline reads those),
       // so clearing only the WheelEvent's flags is insufficient. This also lets eframe
       // distinguish pinch's synthetic Ctrl from a physically held Ctrl key.
-      canvas.dispatchEvent(new MouseEvent("mousemove", { ...common, buttons: 0,
-        shiftKey: false, altKey: false, ctrlKey: false }));
-      canvas.dispatchEvent(new WheelEvent("wheel", { ...common, shiftKey: false, altKey: false,
+      forward(new MouseEvent("mousemove", { ...common, buttons: 0,
+        shiftKey: false, altKey: false, ctrlKey: false, metaKey: false }));
+      forward(new WheelEvent("wheel", { ...common, shiftKey: false, altKey: false, metaKey: false,
         deltaX: event.dx, deltaY: event.dy, deltaMode: 0, ctrlKey: event.zoom }));
     } else if (event.type === "move") {
-      canvas.dispatchEvent(new MouseEvent("mousemove", { ...common, buttons }));
+      forward(new MouseEvent("mousemove", { ...common, buttons }));
     } else {
-      buttons = event.type === "down" ? (event.button === 2 ? 2 : 1) : 0;
-      canvas.dispatchEvent(new PointerEvent(event.type === "down" ? "pointerdown" : "pointerup", {
-        ...common, pointerType: "mouse", pointerId: 1, isPrimary: true, button: event.button, buttons,
+      buttons = event.type === "down" ? (event.button === 2 ? 2 : event.button === 1 ? 4 : 1) : 0;
+      forward(new PointerEvent(event.type === "down" ? "pointerdown" : "pointerup", {
+        ...common, pointerType, pointerId: event.pointerId ?? 1, isPrimary: true, button: event.button, buttons,
       }));
     }
   };
-  const gesture = new TouchGesture(emit);
-  // Pens edit in either direction after just 3 CSS pixels; fingers keep their safe swipe policy.
-  const penGesture = new TouchGesture(emit, undefined, undefined, 3);
+  const gesture = new TouchGesture(dispatch);
+  const pen = new PenGesture((event) => dispatch(event, "pen"));
   canvas.style.touchAction = "none";
   canvas.style.userSelect = "none";
   const stop = (e) => { e.preventDefault(); e.stopImmediatePropagation(); };
   const position = (e) => ({ x: e.clientX + offset.x, y: e.clientY + offset.y });
-  const penPosition = (e) => ({ x: e.clientX + (activePen?.offset.x || 0), y: e.clientY + (activePen?.offset.y || 0),
-    shiftKey: e.shiftKey, altKey: e.altKey, ctrlKey: e.ctrlKey });
   const clearHover = () => canvas.dispatchEvent(new MouseEvent("mouseleave", { bubbles: false }));
-  const cancel = () => { gesture.cancelAll(); penGesture.cancelAll(); activePen = null; penInRange = false; buttons = 0; clearHover(); };
+  const cancel = () => { gesture.cancelAll(); pen.cancelAll(); buttons = 0; clearHover(); };
+  const consumeContext = () => {
+    const context = controls.context;
+    controls.context = false;
+    if (context) window.dispatchEvent(new Event("filmcraft-context-mode"));
+    return context;
+  };
+  const penPosition = (e) => ({ ...position(e), pointerId: e.pointerId, shiftKey: e.shiftKey,
+    ctrlKey: e.ctrlKey, altKey: e.altKey, metaKey: e.metaKey, pressure: e.pressure,
+    tiltX: e.tiltX, tiltY: e.tiltY, twist: e.twist, width: e.width, height: e.height });
   canvas.addEventListener("pointerdown", (e) => {
-    if (e.pointerType === "mouse") { if (e.isTrusted) penInRange = false; return; }
+    if (forwarded.has(e)) return;
+    lastPointer = e.pointerType;
     if (e.pointerType === "pen") {
       stop(e);
-      penContacts.add(e.pointerId);
-      penInRange = true;
-      if (activePen) return;
-      // Cancel any finger gesture before the pen takes ownership. Existing palm contacts
-      // stay suppressed until lifted, even if the pen is lifted first.
-      gesture.cancelAll();
-      const target = touchTarget({ x: e.clientX, y: e.clientY }, getLayout(), canvas.getBoundingClientRect(), window.devicePixelRatio || 1, controls.mode, "pen");
-      activePen = { id: e.pointerId, offset: target.offset, button: e.button === 2 || (e.buttons & 2) ? 2 : e.button === 5 || (e.buttons & 32) ? 5 : 0 };
+      gesture.cancelAll(); // A resting palm cannot pinch, scroll or release the pen drag.
+      if (pens.size) return;
+      pens.add(e.pointerId);
+      const layout = getLayout();
+      const target = ["box", "trim"].includes(controls.mode) && !layout?.overlay
+        ? touchTarget({ x: e.clientX, y: e.clientY }, layout, canvas.getBoundingClientRect(), window.devicePixelRatio || 1, controls.mode)
+        : { policy: controls.mode === "scroll" ? "scroll" : "drag", offset: { x: 0, y: 0 } };
+      offset = target.offset;
+      const policy = consumeContext() ? "context" : target.policy;
+      if (policy === "context" || e.button === 2) offset = { x: 0, y: 0 };
       canvas.setPointerCapture?.(e.pointerId);
-      // Eraser ends have no safe generic video-editing meaning: never map them to Delete.
-      if (activePen.button === 0) penGesture.down(e.pointerId, penPosition(e), target.policy);
+      pen.down(e.pointerId, penPosition(e), policy, e.button);
       return;
     }
-    if (e.pointerType !== "touch") return;
+    if (e.pointerType !== "touch") return; // Native mouse remains unchanged.
     stop(e);
     contacts.add(e.pointerId);
-    if (activePen || penContacts.size) return;
+    if (pens.size) return;
     if (!gesture.points.size) {
       const target = touchTarget({ x: e.clientX, y: e.clientY }, getLayout(), canvas.getBoundingClientRect(), window.devicePixelRatio || 1, controls.mode);
       offset = target.offset;
-      controls.policy = target.policy;
+      controls.policy = consumeContext() ? "context" : target.policy;
+      if (controls.policy === "context") offset = { x: 0, y: 0 };
     } else offset = { x: 0, y: 0 };
     canvas.setPointerCapture?.(e.pointerId);
     gesture.down(e.pointerId, position(e), controls.policy);
   }, { capture: true, passive: false });
-  canvas.addEventListener("pointermove", (e) => {
-    if (e.pointerType === "mouse") { if (e.isTrusted) penInRange = false; return; }
-    if (e.pointerType !== "pen" || penContacts.has(e.pointerId)) return;
-    stop(e);
-    penInRange = true;
-    if (!activePen && !contacts.size && e.buttons === 0) emit({ type: "move", ...penPosition(e) });
-  }, { capture: true, passive: false });
-  canvas.addEventListener("pointerleave", (e) => {
-    if (e.pointerType !== "pen" || activePen) return;
-    penInRange = false;
-    clearHover();
-  });
   for (const type of ["pointermove", "pointerup", "pointercancel", "lostpointercapture"]) {
     document.addEventListener(type, (e) => {
-      if (e.pointerType === "pen" && penContacts.has(e.pointerId)) {
+      if (forwarded.has(e)) return;
+      if (e.pointerType === "mouse" && type === "pointermove") lastPointer = "mouse";
+      if (e.pointerType === "pen") {
+        const owned = pens.has(e.pointerId);
+        if (!owned && (type !== "pointermove" || e.target !== canvas)) return;
         stop(e);
-        if (activePen?.id === e.pointerId) {
-          const p = penPosition(e);
-          if (type === "pointermove") {
-            if (activePen.button === 0) penGesture.move(e.pointerId, p);
-          } else {
-            if (activePen.button === 0) penGesture.up(e.pointerId, p, type !== "pointerup");
-            else if (activePen.button === 2 && type === "pointerup" && [p.x, p.y].every(Number.isFinite)) penGesture.context(p);
-            activePen = null;
-            clearHover();
+        lastPointer = "pen";
+        if (type === "pointermove") {
+          if (owned) pen.move(e.pointerId, penPosition(e));
+          else if (!gesture.points.size) {
+            offset = { x: 0, y: 0 };
+            dispatch({ ...penPosition(e), type: "move" }, "pen");
           }
+        } else {
+          pen.up(e.pointerId, penPosition(e), type !== "pointerup");
+          if (type !== "lostpointercapture") pens.delete(e.pointerId);
+          clearHover();
         }
-        if (type !== "pointermove" && type !== "lostpointercapture") penContacts.delete(e.pointerId);
         return;
       }
       if (e.pointerType !== "touch" || !contacts.has(e.pointerId)) return;
@@ -308,15 +361,14 @@ export function installTouch(canvas, getLayout = () => window.filmcraft?.touchLa
       else {
         gesture.up(e.pointerId, p, type !== "pointerup");
         if (type !== "lostpointercapture") contacts.delete(e.pointerId);
-        if (!gesture.points.size) clearHover();
+        if (!gesture.points.size && !pen.stroke) clearHover();
       }
     }, { capture: true, passive: false });
   }
-  // Chromium emits compatibility mouse events for pens too. Only the normalized stream
-  // may reach eframe; duplicate native moves would erase the latched modifier state.
-  for (const type of ["mousedown", "mouseup", "mousemove"]) {
-    canvas.addEventListener(type, (e) => { if (e.isTrusted && penInRange) stop(e); }, { capture: true, passive: false });
-  }
+  // Compatibility mouse moves would overwrite the pen's latched modifiers in eframe.
+  document.addEventListener("mousemove", (e) => {
+    if (lastPointer === "pen" && !forwarded.has(e) && (e.target === canvas || pens.size)) stop(e);
+  }, { capture: true, passive: false });
   // eframe also listens for legacy touch events; don't feed the same gesture to it twice.
   for (const type of ["touchstart", "touchmove", "touchend", "touchcancel", "contextmenu"]) {
     canvas.addEventListener(type, stop, { capture: true, passive: false });
@@ -425,6 +477,13 @@ export function installTouchBar(canvas, { modifiers, controls }) {
     if (!["box", "trim"].includes(controls.mode)) return false;
     controls.mode = "auto"; updateModes(); return true;
   };
+  const options = button("Options", "Next touch or pen tap opens a context menu", () => {
+    controls.context = !controls.context;
+    updateContext();
+  });
+  const updateContext = () => options.setAttribute("aria-pressed", String(controls.context));
+  window.addEventListener("filmcraft-context-mode", updateContext);
+  updateContext();
   button("Undo", "Undo", () => invoke("edit.undo"));
   button("Redo", "Redo", () => invoke("edit.redo"));
   button("UI", "Adjust editor UI scale", () => showScalePicker());
@@ -459,8 +518,9 @@ export function installTouchBar(canvas, { modifiers, controls }) {
   button("Delete", "Delete selected items or layers", () => invoke("edit.clear"));
   button("Help", "Touch, stylus controls and Android limitations", () => showTouchSheet(
     "Stylus: hover to inspect controls; tap to select, and drag directly to move items, scrub values or draw a box from empty selection space. " +
-    "The on-screen Shift / Alt / Ctrl buttons also modify pen input. Hold still for 0.5 seconds and release for options, or use a pen side-button click where supported. " +
-    "Scroll, Box select and Trim modes work with the pen too. Pen Auto preserves precise clip-edge hits; Trim offers a small edge assist. " +
+    "Pen edits start immediately on contact, just like EffectCraft. The on-screen Shift / Alt / Ctrl buttons also modify pen input. " +
+    "Use its side button for options, or tap Options then tap the target with a pen or finger. Options is one-shot; moving instead of tapping cancels a pen context click. " +
+    "Scroll, Box select and Trim modes work with the pen too. Pen Auto uses exact tip coordinates without expanded trim/scrollbar snapping; explicit Trim uses the same accessible edge targets as fingers. " +
     "Touch contacts on the canvas are ignored while the pen is down; lift the pen and palm before using finger gestures. Eraser tips do not delete content. " +
     "Hover and side buttons depend on your pen and Android WebView. No editing feature requires a pen; pressure and tilt are not editing controls. " +
     "Finger Auto: swipe in either direction to scroll the timeline and media/effects lists without moving clips or keys. " +

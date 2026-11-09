@@ -41,16 +41,20 @@ containment. Full TalkBack navigation of the canvas is **not validated**.
 
 ## Optional stylus
 
-- Pen Auto uses precision dragging in either direction (3 CSS-pixel movement threshold), not
-  finger swipe-to-scroll. Drag clips, media, effects, keys and numbers directly; drag empty
+- Pen Auto presses immediately on contact, matching EffectCraft's Android stylus controls
+  at commit `3f0771131bbec313d87489d764ff758c54dce232`, not finger swipe-to-scroll.
+  Drag clips, media, effects, keys and numbers directly; drag empty
   selection space for a marquee wherever the editor supports it. Nothing requires a pen.
 - Hover supplies pointer feedback/tooltips where the editor offers them. On-screen **Shift**,
   **Alt** and **Ctrl** work with pen hover, taps and drags, alongside physical keyboard modifiers.
-- Hold the tip still for 500 ms and release for context options without an initial left click.
-  A side-button/right click also opens options if the device exposes it through Pointer Events.
+- Tap **Options**, then tap the target with a pen **or finger** for context options without
+  an initial left click or hold. Options is one-shot; tap it again to disarm. A reported
+  side-button/right click also opens options. Pen context gestures moving more than 6 CSS
+  pixels are not clicks, even if they return to their origin. Finger hold/release still works.
   A button pressed midway through a tip drag does not switch that edit to a context action.
-- **Scroll**, **Box select**, **Trim** and **Done** also apply to the pen. Auto keeps exact clip
-  edge hits instead of the larger finger snap zones; Trim has a smaller 12 CSS-pixel edge assist.
+- **Scroll**, **Box select**, **Trim** and **Done** also apply to the pen. Auto keeps exact
+  tip coordinates without expanded clip-edge or scrollbar snapping. Explicit Trim uses the
+  same 32 CSS-pixel clip-edge assist as fingers; Box/Trim retain their guarded targets.
 - While a pen contact is on the canvas, finger/palm contacts cannot start edits, scroll or pinch.
   Lift the pen and any existing palm contacts before resuming finger navigation. This is basic
   contact isolation, not hardware palm rejection; contacts before pen-down may already act.
@@ -58,8 +62,9 @@ containment. Full TalkBack navigation of the canvas is **not validated**.
   controls. Hover, barrel buttons and pen detection depend on hardware/WebView; a passive
   capacitive stylus reported as a finger uses the unchanged finger controls instead.
 
-Pen input is normalized to the editor's mouse path, with duplicate browser compatibility events
-suppressed. Rotation, capture loss, app switching and cancellation release logical input without
+Pen input retains its pen identity and metadata through the editor's pointer path, with duplicate
+browser compatibility moves suppressed. Pressure/tilt are carried through but are not editing
+controls. Rotation, capture loss, app switching and cancellation release logical input without
 jumping the edit to (0,0). Cancelling an already-started drag does not undo it; use Undo if needed.
 
 ## Storage and safety
@@ -112,7 +117,7 @@ back up externally before uninstalling.
 - Phone/tablet, portrait/landscape, split screen, keyboard/IME, app switching.
 - Real-finger selection, scrolling, hold/drag, both trim ends, box selection, pinch and Undo/Redo.
 - Active pen: hover, tap/double-tap, vertical/horizontal edits, modifiers, both trim ends, box
-  selection, drag across panels, hold/side-button menus, eraser safety, palm contacts during a
+  selection, drag across panels, Options/side-button menus, eraser safety, palm contacts during a
   stroke, capture loss/app switching and switching back to fingers/mouse. Test a buttonless pen too.
 - TalkBack, switch access, modal focus/dismissal and optional physical keyboard.
 - Save/reopen with media, MP4 export, picker cancellation/provider failure and disk-full handling.
